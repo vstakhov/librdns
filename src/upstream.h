@@ -65,143 +65,154 @@ typedef struct upstream_entry_s {
 #endif
 
 #define UPSTREAM_FAIL(u, now) do {											\
-	if ((u)->up.time != 0) {												\
-		(u)->up.errors ++;													\
-	}																		\
-	else {																	\
-		(u)->up.time = now;													\
-		(u)->up.dead = 1;													\
-		(u)->up.common->alive --;											\
-	}																		\
+    if ((u)->up.time != 0) {												\
+      if ((now) - (u)->up.time >= UPSTREAM_ERROR_TIME) {					\
+        if ((u)->up.errors >= UPSTREAM_MAX_ERRORS) {						\
+          (u)->up.dead = 1;													\
+          (u)->up.time = now;												\
+          (u)->up.common->alive --;											\
+        }																	\
+        else {																\
+          (u)->up.errors = 1;												\
+          (u)->up.time = (now);												\
+        }																	\
+      }																		\
+      else {																\
+        (u)->up.errors ++;													\
+      }																		\
+    }																		\
+    else {																	\
+      (u)->up.errors ++;													\
+      (u)->up.time = (now);													\
+    }																		\
 } while (0)
 
 #define UPSTREAM_OK(u) do {													\
-	(u)->up.errors = 0;														\
+    (u)->up.errors = 0;														\
+    (u)->up.time = 0;														\
 } while (0)
 
 #define UPSTREAM_ADD(head, u, priority) do {								\
-	if (head == NULL) {														\
-		struct upstream_common_data *cd;									\
-		cd = upstream_malloc (sizeof (struct upstream_common_data));		\
-		if (cd == NULL) {													\
-			upstream_fatal ("malloc failed");								\
-		}																	\
-		cd->upstreams = upstream_malloc (sizeof (void *) * 8);				\
-		if (cd == NULL) {													\
-			upstream_fatal ("malloc failed");								\
-		}																	\
-		cd->allocated_nelts = 8;											\
-		cd->nelts = 1;														\
-		cd->alive = 1;														\
-		cd->upstreams[0] = (u);												\
-		(u)->up.common = cd;												\
-	}																		\
-	else {																	\
-		struct upstream_common_data *cd = (head)->up.common;				\
-		(u)->up.common = cd;												\
-		if (cd->nelts == cd->allocated_nelts) {								\
-			void **nup;														\
-			nup = upstream_malloc (sizeof (void *) * cd->nelts * 2);		\
-			if (nup == NULL) {												\
-				upstream_fatal ("malloc failed");							\
-			}																\
-			memcpy (nup, cd->upstreams, cd->nelts * sizeof (void *));		\
-			upstream_free (cd->nelts * sizeof (void *), cd->upstreams);		\
-			cd->upstreams = nup;											\
-			cd->allocated_nelts *= 2;										\
-		}																	\
-		cd->upstreams[cd->nelts++] = (u);									\
-		cd->alive ++;														\
-	}																		\
-	(u)->up.next = (head);													\
-	(head) = (u);															\
-	if (priority > 0) {														\
-		(u)->up.priority = (u)->up.weight = (priority);						\
-	}																		\
-	else {																	\
-		(u)->up.priority = (u)->up.weight = 65535;							\
-	}																		\
-	(u)->up.time = 0;														\
-	(u)->up.errors = 0;														\
-	(u)->up.dead = 0;														\
-	(u)->up.parent = (u);													\
+    if (head == NULL) {														\
+      struct upstream_common_data *cd;										\
+      cd = upstream_malloc (sizeof (struct upstream_common_data));			\
+      if (cd == NULL) {														\
+        upstream_fatal ("malloc failed");									\
+      }																		\
+      cd->upstreams = upstream_malloc (sizeof (void *) * 8);				\
+      if (cd == NULL) {														\
+        upstream_fatal ("malloc failed");									\
+      }																		\
+      cd->allocated_nelts = 8;												\
+      cd->nelts = 1;														\
+      cd->alive = 1;														\
+      cd->upstreams[0] = (u);												\
+      (u)->up.common = cd;													\
+    }																		\
+    else {																	\
+      struct upstream_common_data *cd = (head)->up.common;					\
+      (u)->up.common = cd;													\
+      if (cd->nelts == cd->allocated_nelts) {								\
+        void **nup;															\
+        nup = upstream_malloc (sizeof (void *) * cd->nelts * 2);			\
+        if (nup == NULL) {													\
+          upstream_fatal ("malloc failed");									\
+        }																	\
+        memcpy (nup, cd->upstreams, cd->nelts * sizeof (void *));			\
+        upstream_free (cd->nelts * sizeof (void *), cd->upstreams);			\
+        cd->upstreams = nup;												\
+        cd->allocated_nelts *= 2;											\
+      }																		\
+      cd->upstreams[cd->nelts++] = (u);										\
+      cd->alive ++;															\
+    }																		\
+    (u)->up.next = (head);													\
+    (head) = (u);															\
+    if (priority > 0) {														\
+      (u)->up.priority = (u)->up.weight = (priority);						\
+    }																		\
+    else {																	\
+      (u)->up.priority = (u)->up.weight = 65535;							\
+    }																		\
+    (u)->up.time = 0;														\
+    (u)->up.errors = 0;														\
+    (u)->up.dead = 0;														\
+    (u)->up.parent = (u);													\
 } while (0)
 
 #define UPSTREAM_FOREACH(head, u) for ((u) = (head); (u) != NULL; (u) = (u)->up.next)
 
 #define UPSTREAM_REVIVE_ALL(head) do {										\
-	__typeof(head) elt = (head);											\
-	while (elt != NULL) {													\
-		elt->up.dead = 0;													\
-		elt->up.errors = 0;													\
-		elt = elt->up.next;													\
-	}																		\
-	(head)->up.common->alive = (head)->up.common->elts;						\
+    __typeof(head) elt = (head);											\
+    while (elt != NULL) {													\
+      elt->up.dead = 0;														\
+      elt->up.errors = 0;													\
+      elt->up.time = 0;														\
+      elt = elt->up.next;													\
+    }																		\
+    (head)->up.common->alive = (head)->up.common->elts;						\
 } while (0)
 
 #define UPSTREAM_RESCAN(head, now) do {										\
-	__typeof(head) elt = (head);											\
-	if ((head)->up.common->alive == 0) {									\
-	  UPSTREAM_REVIVE_ALL((head));											\
-	}																		\
-	else {																	\
-		while (elt != NULL) {												\
-			if (elt->up.dead) {												\
-				if ((now) - elt->up.time >= UPSTREAM_REVIVE_TIME) {			\
-					elt->up.dead = 0;										\
-					elt->up.errors = 0;										\
-					elt->up.weight = elt->up.priority;						\
-					(head)->up.common->alive ++;							\
-				}															\
-			}																\
-			else {															\
-				if ((now) - elt->up.time >= UPSTREAM_ERROR_TIME &&			\
-						elt->up.errors >= UPSTREAM_MAX_ERRORS) {			\
-					elt->up.dead = 1;										\
-					elt->up.time = now;										\
-					(head)->up.common->alive --;							\
-				}															\
-				else {														\
-				  (head)->up.common->alive ++;								\
-				}															\
-			}																\
-			elt = elt->up.next;												\
-		}																	\
-	}																		\
+    __typeof(head) elt = (head);											\
+    if ((head)->up.common->alive == 0) {									\
+      UPSTREAM_REVIVE_ALL((head));											\
+    }																		\
+    else {																	\
+      while (elt != NULL) {													\
+        if (elt->up.dead) {													\
+          if ((now) - elt->up.time >= UPSTREAM_REVIVE_TIME) {				\
+            elt->up.dead = 0;												\
+            elt->up.errors = 0;												\
+            elt->up.weight = elt->up.priority;								\
+            (head)->up.common->alive ++;									\
+          }																	\
+        }																	\
+        else {																\
+          if ((now) - elt->up.time >= UPSTREAM_ERROR_TIME &&				\
+              elt->up.errors >= UPSTREAM_MAX_ERRORS) {						\
+            elt->up.dead = 1;												\
+            elt->up.time = now;												\
+            (head)->up.common->alive --;									\
+          }																	\
+        }																	\
+        elt = elt->up.next;													\
+      }																		\
+    }																		\
 } while (0)
 
 #define UPSTREAM_SELECT_ROUND_ROBIN(head, selected) do {					\
-	__typeof(head) elt = (head);											\
-	(selected) = NULL;														\
-	int alive = 0;															\
-	unsigned max_weight = 0;												\
-	if ((head)->up.common->alive == 0){ 									\
-		UPSTREAM_REVIVE_ALL(head);											\
-	}																		\
-	while (elt != NULL) {													\
-		if (!elt->dead) {													\
-			if (elt->up.weight > max_weight) {								\
-				max_weight = elt->up.weight;								\
-				(selected) = elt;											\
-			}																\
-			alive ++;														\
-		}																	\
-		elt = elt->up.next;													\
-	}																		\
-	if (max_weight == 0) {													\
-		elt = (head);														\
-		while (elt != NULL) {												\
-			elt->up.weight = elt->up.priority;								\
-			if (!elt->dead) {												\
-				if (elt->up.priority > max_weight) {						\
-					max_weight = elt->up.priority;							\
-					(selected) = elt;										\
-				}															\
-			}																\
-			elt = elt->up.next;												\
-		}																	\
-	}																		\
-	(selected)->up.weight --;												\
+    __typeof(head) elt = (head);											\
+    (selected) = NULL;														\
+    int alive = 0;															\
+    unsigned max_weight = 0;												\
+    if ((head)->up.common->alive == 0){ 									\
+      UPSTREAM_REVIVE_ALL(head);											\
+    }																		\
+    while (elt != NULL) {													\
+      if (!elt->dead) {														\
+        if (elt->up.weight > max_weight) {									\
+          max_weight = elt->up.weight;										\
+          (selected) = elt;													\
+        }																	\
+        alive ++;															\
+      }																		\
+      elt = elt->up.next;													\
+    }																		\
+    if (max_weight == 0) {													\
+      elt = (head);															\
+      while (elt != NULL) {													\
+        elt->up.weight = elt->up.priority;									\
+        if (!elt->dead) {													\
+          if (elt->up.priority > max_weight) {								\
+            max_weight = elt->up.priority;									\
+            (selected) = elt;												\
+          }																	\
+        }																	\
+        elt = elt->up.next;													\
+      }																		\
+    }																		\
+    (selected)->up.weight --;												\
 } while (0)
 
 #endif /* UPSTREAM_H_ */
