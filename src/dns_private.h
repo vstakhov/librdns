@@ -61,17 +61,10 @@ struct rdns_server {
 
 	struct rdns_io_channel *io_channels;
 	struct rdns_io_channel *cur_io_channel;
-	struct rdns_server *slaves;
-	struct rdns_server *prev, *next;
 
 	unsigned int io_cnt;
 
 	upstream_entry_t up;
-};
-
-struct rdns_server_chain {
-	struct rdns_server *servers;
-	struct rdns_server *cur;
 };
 
 struct rdns_request {
@@ -114,7 +107,7 @@ struct rdns_io_channel {
 
 
 struct rdns_resolver {
-	struct rdns_server_chain *servers;
+	struct rdns_server *servers;
 	unsigned int request_timeout;
 	struct rdns_io_channel *io_channels; /**< hash of io chains indexed by socket        */
 	struct {

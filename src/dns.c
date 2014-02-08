@@ -852,7 +852,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 	}
 	
 	/* Now init io channels to all servers */
-	CDL_FOREACH (resolver->servers->servers, serv) {
+	UPSTREAM_FOREACH (resolver->servers, serv) {
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
 			ioc->sock = make_universal_socket (serv->name, dns_port, SOCK_DGRAM);
@@ -868,8 +868,6 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 			}
 		}
 	}
-
-	resolver->servers->cur = resolver->servers->servers;
 
 	return true;
 }
