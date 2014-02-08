@@ -27,6 +27,7 @@
 #include "uthash.h"
 #include "utlist.h"
 #include "dns.h"
+#include "upstream.h"
 
 /* Upstream timeouts */
 #define DEFAULT_UPSTREAM_ERROR_TIME 10
@@ -64,6 +65,8 @@ struct rdns_server {
 	struct rdns_server *prev, *next;
 
 	unsigned int io_cnt;
+
+	upstream_entry_t up;
 };
 
 struct rdns_server_chain {
@@ -103,6 +106,8 @@ struct rdns_io_channel {
 	void *async_io; /** async opaque ptr */
 	struct rdns_request *requests; /**< requests in flight                                         */
 	struct rdns_io_channel *prev, *next;
+	unsigned int ref;
+	bool want_reinit;
 	UT_hash_handle hh;
 };
 

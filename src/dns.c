@@ -154,8 +154,7 @@ format_dns_name (struct rdns_request *req, const char *name, unsigned int namele
 	uint8_t *pos = req->packet + req->pos, *end, *dot, *name_pos, *begin;
 	unsigned int remain = req->packet_len - req->pos - 5, label_len;
 	uint32_t *uclabel;
-	long uclabel_len;
-	size_t punylabel_len;
+	size_t punylabel_len, uclabel_len;
 	uint8_t tmp_label[DNS_D_MAXLABEL];
 
 	if (namelen == 0) {

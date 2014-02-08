@@ -1,3 +1,3 @@
-=Rapid DNS resolver
+##Rapid DNS resolver
 
-Rspamd resolver isolated.
+Experimental asynchronous DNS resolver.
