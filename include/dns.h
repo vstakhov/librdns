@@ -109,6 +109,16 @@ struct rdns_reply {
 struct rdns_resolver *rdns_resolver_new (void);
 
 /**
+ * Add new DNS server definition to the resolver
+ * @param resolver resolver object
+ * @param name name of DNS server (should be ipv4 or ipv6 address)
+ * @param priority priority (can be 0 for fair round-robin)
+ * @return true if a server has been added to resolver
+ */
+bool rdns_resolver_add_server (struct rdns_resolver *resolver,
+		const char *name, int priority);
+
+/**
  * Init DNS resolver
  * @param resolver
  * @return

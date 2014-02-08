@@ -30,7 +30,7 @@
 
 struct upstream_entry_s;
 struct upstream_common_data {
-	struct upstream_entry_s *upstreams;
+	void **upstreams;
 	unsigned int allocated_nelts;
 	unsigned int nelts;
 	unsigned int alive;
@@ -86,7 +86,7 @@ typedef struct upstream_entry_s {
 		if (cd == NULL) {													\
 			upstream_fatal ("malloc failed");								\
 		}																	\
-		cd->upstreams = upstream_malloc (sizeof (upstream_entry_t) * 8);	\
+		cd->upstreams = upstream_malloc (sizeof (void *) * 8);				\
 		if (cd == NULL) {													\
 			upstream_fatal ("malloc failed");								\
 		}																	\
@@ -100,13 +100,13 @@ typedef struct upstream_entry_s {
 		struct upstream_common_data *cd = (head)->up.common;				\
 		(u)->up.common = cd;												\
 		if (cd->nelts == cd->allocated_nelts) {								\
-			struct upstream_entry_s *nup;									\
-			nup = upstream_malloc (sizeof (upstream_entry_t) * cd->nelts * 2);	\
+			void **nup;														\
+			nup = upstream_malloc (sizeof (void *) * cd->nelts * 2);		\
 			if (nup == NULL) {												\
 				upstream_fatal ("malloc failed");							\
 			}																\
-			memcpy (nup, cd->upstreams, cd->nelts * sizeof (upstream_entry_t));	\
-			upstream_free (cd->nelts * sizeof (upstream_entry_t), cd->upstreams);	\
+			memcpy (nup, cd->upstreams, cd->nelts * sizeof (void *));		\
+			upstream_free (cd->nelts * sizeof (void *), cd->upstreams);		\
 			cd->upstreams = nup;											\
 			cd->allocated_nelts *= 2;										\
 		}																	\
@@ -115,10 +115,15 @@ typedef struct upstream_entry_s {
 	}																		\
 	(u)->up.next = (head);													\
 	(head) = (u);															\
-	(u)->up.priority = (u)->up.weight = (priority);							\
+	if (priority > 0) {														\
+		(u)->up.priority = (u)->up.weight = (priority);						\
+	}																		\
+	else {																	\
+		(u)->up.priority = (u)->up.weight = 65535;							\
+	}																		\
 	(u)->up.time = 0;														\
 	(u)->up.errors = 0;														\
-	(u)->up.alive = 1;														\
+	(u)->up.dead = 0;														\
 	(u)->up.parent = (u);													\
 } while (0)
 
@@ -166,8 +171,8 @@ typedef struct upstream_entry_s {
 } while (0)
 
 #define UPSTREAM_SELECT_ROUND_ROBIN(head, selected) do {					\
-	__typeof(head) elt = (head));											\
-	selected = NULL;														\
+	__typeof(head) elt = (head);											\
+	(selected) = NULL;														\
 	int alive = 0;															\
 	unsigned max_weight = 0;												\
 	if ((head)->up.common->alive == 0){ 									\
@@ -177,7 +182,7 @@ typedef struct upstream_entry_s {
 		if (!elt->dead) {													\
 			if (elt->up.weight > max_weight) {								\
 				max_weight = elt->up.weight;								\
-				selected = elt;												\
+				(selected) = elt;											\
 			}																\
 			alive ++;														\
 		}																	\
@@ -186,15 +191,17 @@ typedef struct upstream_entry_s {
 	if (max_weight == 0) {													\
 		elt = (head);														\
 		while (elt != NULL) {												\
+			elt->up.weight = elt->up.priority;								\
 			if (!elt->dead) {												\
 				if (elt->up.priority > max_weight) {						\
 					max_weight = elt->up.priority;							\
-					selected = elt;											\
+					(selected) = elt;										\
 				}															\
 			}																\
 			elt = elt->up.next;												\
 		}																	\
 	}																		\
+	(selected)->up.weight --;												\
 } while (0)
 
 #endif /* UPSTREAM_H_ */

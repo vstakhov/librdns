@@ -869,6 +869,29 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 		}
 	}
 
+	resolver->initialized = true;
+
+	return true;
+}
+
+bool
+rdns_resolver_add_server (struct rdns_resolver *resolver,
+		const char *name, int priority)
+{
+	struct rdns_server *serv;
+
+	serv = calloc (1, sizeof (struct rdns_server));
+	if (serv == NULL) {
+		return false;
+	}
+	serv->name = strdup (name);
+	if (serv->name == NULL) {
+		free (serv);
+		return false;
+	}
+
+	UPSTREAM_ADD (resolver->servers, serv, priority);
+
 	return true;
 }
 
