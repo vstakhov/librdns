@@ -278,17 +278,44 @@ rdns_add_edns0 (struct rdns_request *req)
 }
 
 static int
-dns_send_request (struct rdns_request *req, int fd)
+dns_send_request (struct rdns_request *req, int fd, bool new_req)
 {
 	int r;
 	struct rdns_server *serv = req->io->srv;
 	struct rdns_resolver *resolver = req->resolver;
+	struct rdns_request *tmp;
+	struct dns_header *header;
+	const int max_id_cycles = 32;
+
+	/* Find ID collision */
+	if (new_req) {
+		r = 0;
+		HASH_FIND_INT (req->io->requests, &req->id, tmp);
+		while (tmp != NULL) {
+			/* Check for unique id */
+			header = (struct dns_header *)req->packet;
+			header->qid = dns_permutor_generate_id ();
+			req->id = header->qid;
+			if (++r > max_id_cycles) {
+				return -1;
+			}
+			HASH_FIND_INT (req->io->requests, &req->id, tmp);
+		}
+	}
 
 	r = send (fd, req->packet, req->pos, 0);
 	if (r == -1) {
 		if (errno == EAGAIN || errno == EINTR) {
-			req->async_event = resolver->async.add_write (resolver->async.data,
+			if (new_req) {
+				/* Write when socket is ready */
+				HASH_ADD_INT (req->io->requests, id, req);
+				req->async_event = resolver->async.add_write (resolver->async.data,
 					req);
+			}
+			/*
+			 * If request is already processed then the calling function
+			 * should take care about events processing
+			 */
 			return 0;
 		} 
 		else {
@@ -297,6 +324,14 @@ dns_send_request (struct rdns_request *req, int fd)
 		}
 	}
 	
+	if (new_req) {
+		/* Add request to hash table */
+		HASH_ADD_INT (req->io->requests, id, req);
+		/* Fill timeout */
+		req->async_event = resolver->async.add_timer (resolver->async.data,
+				req->timeout, req);
+	}
+
 	return 1;
 }
 
@@ -747,19 +782,21 @@ bool rdns_make_request_full (
 		)
 {
 	va_list args;
-	struct rdns_request *req, *tmp;
+	struct rdns_request *req;
 	struct rdns_server *serv;
 	struct in_addr *addr;
 	int r, type;
 	unsigned int i;
-	const int max_id_cycles = 32;
-	struct dns_header *header;
 
 	if (!resolver->initialized) {
 		return false;
 	}
 
 	req = malloc (sizeof (struct rdns_request));
+	if (req == NULL) {
+		return false;
+	}
+
 	req->resolver = resolver;
 	req->func = cb;
 	req->arg = cbdata;
@@ -797,6 +834,7 @@ bool rdns_make_request_full (
 	rdns_add_edns0 (req);
 
 	req->retransmits = 0;
+	req->timeout = timeout;
 
 	UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
 
@@ -815,28 +853,9 @@ bool rdns_make_request_full (
 	serv->cur_io_channel = serv->cur_io_channel->next;
 	
 	/* Now send request to server */
-	r = dns_send_request (req, req->io->sock);
+	r = dns_send_request (req, req->io->sock, true);
 
-	if (r == 1) {
-		/* Add request to hash table */
-		r = 0;
-		HASH_FIND_INT (req->io->requests, &req->id, tmp);
-		while (tmp != NULL) {
-			/* Check for unique id */
-			header = (struct dns_header *)req->packet;
-			header->qid = dns_permutor_generate_id ();
-			req->id = header->qid;
-			if (++r > max_id_cycles) {
-				return false;
-			}
-			HASH_FIND_INT (req->io->requests, &req->id, tmp);
-		}
-
-		HASH_ADD_INT (req->io->requests, id, req);
-		/* Fill timeout */
-		req->async_event = resolver->async.add_timer (resolver->async.data, timeout, req);
-	}
-	else if (r == -1) {
+	if (r == -1) {
 		return false;
 	}
 

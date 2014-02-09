@@ -157,4 +157,12 @@ const char *dns_strerror (enum dns_rcode rcode);
  */
 const char *dns_strtype (enum rdns_request_type type);
 
+/*
+ * Private functions used by async libraries as callbacks
+ */
+
+void rdns_process_read (int fd, void *arg);
+void rdns_process_timer (void *arg);
+void rdns_process_retransmit (int fd, void *arg);
+
 #endif

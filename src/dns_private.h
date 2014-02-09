@@ -71,7 +71,7 @@ struct rdns_request {
 	struct rdns_resolver *resolver;
 	struct rdns_io_channel *io;
 
-	struct timeval tv;
+	double timeout;
 	unsigned int retransmits;
 
 	int id;
