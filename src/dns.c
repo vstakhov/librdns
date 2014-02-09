@@ -278,7 +278,7 @@ rdns_add_edns0 (struct rdns_request *req)
 }
 
 static int
-dns_send_request (struct rdns_request *req, int fd, bool new_req)
+rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 {
 	int r;
 	struct rdns_server *serv = req->io->srv;
@@ -333,6 +333,12 @@ dns_send_request (struct rdns_request *req, int fd, bool new_req)
 	}
 
 	return 1;
+}
+
+static void
+rdns_request_free (struct rdns_request *req)
+{
+	/* TODO: implement it */
 }
 
 static uint8_t *
@@ -763,11 +769,61 @@ rdns_process_read (int fd, void *arg)
 void
 rdns_process_timer (void *arg)
 {
+	struct rdns_request *req = (struct rdns_request *)arg;
+	struct rdns_resolver *resolver;
+	int r;
+
+	resolver = req->resolver;
+
+	req->retransmits ++;
+	if (req->retransmits > resolver->max_retransmits) {
+		/* XXX: call the callback */
+		rdns_request_free (req);
+		return;
+	}
+	if (r == 0) {
+		/* Retransmit one more time */
+		resolver->async.del_timer (resolver->async.data,
+					req->async_event);
+		req->async_event = resolver->async.add_write (resolver->async.data,
+				req);
+	}
+	else if (r == -1) {
+		/* XXX: call the callback */
+		rdns_request_free (req);
+	}
+	else {
+		resolver->async.repeat_timer (resolver->async.data, req->async_event);
+	}
 }
 
 void
 rdns_process_retransmit (int fd, void *arg)
 {
+	struct rdns_request *req = (struct rdns_request *)arg;
+	struct rdns_resolver *resolver;
+	int r;
+
+	resolver = req->resolver;
+
+	resolver->async.del_write (resolver->async.data,
+			req->async_event);
+
+	r = rdns_send_request (req, fd, false);
+
+	if (r == 0) {
+		/* Retransmit one more time */
+		req->async_event = resolver->async.add_write (resolver->async.data,
+						req);
+	}
+	else if (r == -1) {
+		/* XXX: call the callback */
+		rdns_request_free (req);
+	}
+	else {
+		req->async_event = resolver->async.add_timer (resolver->async.data,
+			req->timeout, req);
+	}
 }
 
 bool rdns_make_request_full (
@@ -853,7 +909,7 @@ bool rdns_make_request_full (
 	serv->cur_io_channel = serv->cur_io_channel->next;
 	
 	/* Now send request to server */
-	r = dns_send_request (req, req->io->sock, true);
+	r = rdns_send_request (req, req->io->sock, true);
 
 	if (r == -1) {
 		return false;

@@ -109,6 +109,7 @@ struct rdns_io_channel {
 struct rdns_resolver {
 	struct rdns_server *servers;
 	unsigned int request_timeout;
+	unsigned int max_retransmits;
 	struct rdns_io_channel *io_channels; /**< hash of io chains indexed by socket        */
 	struct {
 		void *data;
