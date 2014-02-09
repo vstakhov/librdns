@@ -22,6 +22,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -330,15 +331,10 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		/* Fill timeout */
 		req->async_event = resolver->async.add_timer (resolver->async.data,
 				req->timeout, req);
+		req->state = RDNS_REQUEST_SENT;
 	}
 
 	return 1;
-}
-
-static void
-rdns_request_free (struct rdns_request *req)
-{
-	/* TODO: implement it */
 }
 
 static uint8_t *
@@ -761,7 +757,9 @@ rdns_process_read (int fd, void *arg)
 	r = read (fd, in, sizeof (in));
 	if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
 		if (dns_parse_reply (fd, in, r, resolver, &req, &rep)) {
+			rdns_request_ref (req);
 			req->func (rep, req->arg);
+			rdns_request_unref (req);
 		}
 	}
 }
@@ -778,19 +776,22 @@ rdns_process_timer (void *arg)
 	req->retransmits ++;
 	if (req->retransmits > resolver->max_retransmits) {
 		/* XXX: call the callback */
-		rdns_request_free (req);
+		rdns_request_unref (req);
 		return;
 	}
+
+	r = rdns_send_request (req, req->io->sock, false);
 	if (r == 0) {
 		/* Retransmit one more time */
 		resolver->async.del_timer (resolver->async.data,
 					req->async_event);
 		req->async_event = resolver->async.add_write (resolver->async.data,
 				req);
+		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
 		/* XXX: call the callback */
-		rdns_request_free (req);
+		rdns_request_unref (req);
 	}
 	else {
 		resolver->async.repeat_timer (resolver->async.data, req->async_event);
@@ -815,18 +816,51 @@ rdns_process_retransmit (int fd, void *arg)
 		/* Retransmit one more time */
 		req->async_event = resolver->async.add_write (resolver->async.data,
 						req);
+		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
 		/* XXX: call the callback */
-		rdns_request_free (req);
+		rdns_request_unref (req);
 	}
 	else {
 		req->async_event = resolver->async.add_timer (resolver->async.data,
 			req->timeout, req);
+		req->state = RDNS_REQUEST_SENT;
 	}
 }
 
-bool rdns_make_request_full (
+static void
+rdns_request_free (struct rdns_request *req)
+{
+	if (req != NULL) {
+		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
+			/* Remove from id hashes */
+			HASH_DEL (req->io->requests, req);
+		}
+		if (req->packet != NULL) {
+			free (req->packet);
+		}
+		free (req);
+	}
+}
+
+struct rdns_request*
+rdns_request_ref (struct rdns_request *req)
+{
+	req->ref ++;
+	return req;
+}
+
+void
+rdns_request_unref (struct rdns_request *req)
+{
+	if (--req->ref <= 0) {
+		rdns_request_free (req);
+	}
+}
+
+struct rdns_request*
+rdns_make_request_full (
 		struct rdns_resolver *resolver,
 		dns_callback_type cb,
 		void *cbdata,
@@ -845,17 +879,18 @@ bool rdns_make_request_full (
 	unsigned int i;
 
 	if (!resolver->initialized) {
-		return false;
+		return NULL;
 	}
 
 	req = malloc (sizeof (struct rdns_request));
 	if (req == NULL) {
-		return false;
+		return NULL;
 	}
 
 	req->resolver = resolver;
 	req->func = cb;
 	req->arg = cbdata;
+	req->ref = 1;
 	
 	va_start (args, queries);
 	for (i = 0; i < queries; i ++) {
@@ -891,12 +926,15 @@ bool rdns_make_request_full (
 
 	req->retransmits = 0;
 	req->timeout = timeout;
+	req->io = NULL;
+	req->state = RDNS_REQUEST_NEW;
 
 	UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
 
 	if (serv == NULL) {
 		DNS_DEBUG ("cannot find suitable server for request");
-		return false;
+		rdns_request_unref (req);
+		return NULL;
 	}
 	
 	/* Now select IO channel */
@@ -904,7 +942,8 @@ bool rdns_make_request_full (
 	req->io = serv->cur_io_channel;
 	if (req->io == NULL) {
 		DNS_DEBUG ("cannot find suitable io channel for the server %s", serv->name);
-		return false;
+		rdns_request_unref (req);
+		return NULL;
 	}
 	serv->cur_io_channel = serv->cur_io_channel->next;
 	
@@ -912,10 +951,11 @@ bool rdns_make_request_full (
 	r = rdns_send_request (req, req->io->sock, true);
 
 	if (r == -1) {
-		return false;
+		rdns_request_unref (req);
+		return NULL;
 	}
 
-	return true;
+	return req;
 }
 
 bool

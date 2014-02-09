@@ -77,6 +77,14 @@ struct rdns_request {
 	int id;
 	const char *requested_name;
 
+	int ref;
+	enum {
+		RDNS_REQUEST_NEW = 0,
+		RDNS_REQUEST_REGISTERED = 1,
+		RDNS_REQUEST_SENT,
+		RDNS_REQUEST_REPLIED
+	} state;
+
 	uint8_t *packet;
 	off_t pos;
 	unsigned int packet_len;

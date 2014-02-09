@@ -33,7 +33,7 @@
 #include <arpa/inet.h>
 
 struct rdns_reply;
-struct config_file;
+struct rdns_request;
 
 typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 
@@ -76,6 +76,7 @@ struct rdns_reply_entry {
 	union rdns_reply_element_un content;
 	uint16_t type;
 	uint16_t ttl;
+	struct rdns_request *req;
 	struct rdns_reply_entry *prev, *next;
 };
 
@@ -134,9 +135,9 @@ bool rdns_resolver_init (struct rdns_resolver *resolver);
  * @param repeats how much time to retransmit query
  * @param queries how much RR queries to send
  * @param ... -> queries in format: <query_type>[,type_argument[,type_argument...]]
- * @return TRUE if request was sent.
+ * @return opaque request object or NULL
  */
-bool rdns_make_request_full (
+struct rdns_request* rdns_make_request_full (
 		struct rdns_resolver *resolver,
 		dns_callback_type cb,
 		void *cbdata,
@@ -156,6 +157,19 @@ const char *dns_strerror (enum dns_rcode rcode);
  * Get textual presentation of DNS request type
  */
 const char *dns_strtype (enum rdns_request_type type);
+
+/**
+ * Increase refcount for a request
+ * @param req
+ * @return
+ */
+struct rdns_request* rdns_request_ref (struct rdns_request *req);
+
+/**
+ * Decrease refcount for a request and free it if refcount is 0
+ * @param req
+ */
+void rdns_request_unref (struct rdns_request *req);
 
 /*
  * Private functions used by async libraries as callbacks
