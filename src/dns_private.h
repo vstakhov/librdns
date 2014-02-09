@@ -26,7 +26,7 @@
 
 #include "uthash.h"
 #include "utlist.h"
-#include "dns.h"
+#include "rdns.h"
 #include "upstream.h"
 
 /* Upstream timeouts */

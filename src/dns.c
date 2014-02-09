@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-#include "dns.h"
+#include "rdns.h"
 #include "dns_private.h"
 #include "ottery.h"
 
