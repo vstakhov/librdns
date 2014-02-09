@@ -84,7 +84,7 @@ struct rdns_request {
 	dns_callback_type func;
 	void *arg;
 
-	void *async_timer;
+	void *async_event;
 
 	UT_hash_handle hh;
 };

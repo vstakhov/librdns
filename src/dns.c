@@ -282,11 +282,13 @@ dns_send_request (struct rdns_request *req, int fd)
 {
 	int r;
 	struct rdns_server *serv = req->io->srv;
+	struct rdns_resolver *resolver = req->resolver;
 
 	r = send (fd, req->packet, req->pos, 0);
 	if (r == -1) {
-		if (errno == EAGAIN) {
-			/* TODO: retransmits */
+		if (errno == EAGAIN || errno == EINTR) {
+			req->async_event = resolver->async.add_write (resolver->async.data,
+					req);
 			return 0;
 		} 
 		else {
@@ -796,6 +798,8 @@ bool rdns_make_request_full (
 
 	req->retransmits = 0;
 
+	UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
+
 	if (serv == NULL) {
 		DNS_DEBUG ("cannot find suitable server for request");
 		return false;
@@ -809,9 +813,6 @@ bool rdns_make_request_full (
 		return false;
 	}
 	serv->cur_io_channel = serv->cur_io_channel->next;
-
-	/* Fill timeout */
-	req->async_timer = resolver->async.add_timer (resolver->async.data, timeout, req);
 	
 	/* Now send request to server */
 	r = dns_send_request (req, req->io->sock);
@@ -832,6 +833,8 @@ bool rdns_make_request_full (
 		}
 
 		HASH_ADD_INT (req->io->requests, id, req);
+		/* Fill timeout */
+		req->async_event = resolver->async.add_timer (resolver->async.data, timeout, req);
 	}
 	else if (r == -1) {
 		return false;
@@ -879,6 +882,16 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 		const char *name, int priority)
 {
 	struct rdns_server *serv;
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+	} addr;
+
+	if (inet_pton (AF_INET, name, &addr) == 0 &&
+		inet_pton (AF_INET6, name, &addr) == 0) {
+		/* Invalid IP */
+		return false;
+	}
 
 	serv = calloc (1, sizeof (struct rdns_server));
 	if (serv == NULL) {

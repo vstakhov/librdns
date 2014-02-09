@@ -150,7 +150,7 @@ typedef struct upstream_entry_s {
       elt->up.time = 0;														\
       elt = elt->up.next;													\
     }																		\
-    (head)->up.common->alive = (head)->up.common->elts;						\
+    (head)->up.common->alive = (head)->up.common->nelts;					\
 } while (0)
 
 #define UPSTREAM_RESCAN(head, now) do {										\
@@ -190,7 +190,7 @@ typedef struct upstream_entry_s {
       UPSTREAM_REVIVE_ALL(head);											\
     }																		\
     while (elt != NULL) {													\
-      if (!elt->dead) {														\
+      if (!elt->up.dead) {													\
         if (elt->up.weight > max_weight) {									\
           max_weight = elt->up.weight;										\
           (selected) = elt;													\
@@ -203,7 +203,7 @@ typedef struct upstream_entry_s {
       elt = (head);															\
       while (elt != NULL) {													\
         elt->up.weight = elt->up.priority;									\
-        if (!elt->dead) {													\
+        if (!elt->up.dead) {												\
           if (elt->up.priority > max_weight) {								\
             max_weight = elt->up.priority;									\
             (selected) = elt;												\
