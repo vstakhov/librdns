@@ -20,7 +20,8 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
 SET(LIBRDNSSRC			src/dns_util.c
 						src/dns.c
-						src/punycode.c)
+						src/punycode.c
+						src/dns_curve.c)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/src" 
 					"${CMAKE_SOURCE_DIR}/include" 
