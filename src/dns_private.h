@@ -119,17 +119,7 @@ struct rdns_resolver {
 	unsigned int request_timeout;
 	unsigned int max_retransmits;
 	struct rdns_io_channel *io_channels; /**< hash of io chains indexed by socket        */
-	struct {
-		void *data;
-		void* (*add_read)(void *priv_data, void *user_data);
-		void (*del_read)(void *priv_data, void *ev_data);
-		void* (*add_write)(void *priv_data, void *user_data);
-		void (*del_write)(void *priv_data, void *ev_data);
-		void* (*add_timer)(void *priv_data, double after, void *user_data);
-		void (*repeat_timer)(void *priv_data, void *ev_data);
-		void (*del_timer)(void *priv_data, void *ev_data);
-		void (*cleanup)(void *priv_data);
-	} async; /** async callbacks */
+	struct rdns_async_context async; /** async callbacks */
 	bool async_binded;
 	bool initialized;
 };

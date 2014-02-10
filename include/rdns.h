@@ -101,6 +101,17 @@ struct rdns_reply {
 	struct rdns_reply_entry *entries;
 };
 
+struct rdns_async_context {
+	void *data;
+	void* (*add_read)(void *priv_data, int fd, void *user_data);
+	void (*del_read)(void *priv_data, void *ev_data);
+	void* (*add_write)(void *priv_data, int fd, void *user_data);
+	void (*del_write)(void *priv_data, void *ev_data);
+	void* (*add_timer)(void *priv_data, double after, void *user_data);
+	void (*repeat_timer)(void *priv_data, void *ev_data);
+	void (*del_timer)(void *priv_data, void *ev_data);
+	void (*cleanup)(void *priv_data);
+};
 
 /* Rspamd DNS API */
 
@@ -108,6 +119,13 @@ struct rdns_reply {
  * Create DNS resolver structure
  */
 struct rdns_resolver *rdns_resolver_new (void);
+
+/**
+ * Bind resolver to specified async context
+ * @param ctx
+ */
+void rdns_resolver_async_bind (struct rdns_resolver *resolver,
+		struct rdns_async_context *ctx);
 
 /**
  * Add new DNS server definition to the resolver

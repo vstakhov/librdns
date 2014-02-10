@@ -311,7 +311,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 				/* Write when socket is ready */
 				HASH_ADD_INT (req->io->requests, id, req);
 				req->async_event = resolver->async.add_write (resolver->async.data,
-					req);
+					fd, req);
 			}
 			/*
 			 * If request is already processed then the calling function
@@ -786,7 +786,7 @@ rdns_process_timer (void *arg)
 		resolver->async.del_timer (resolver->async.data,
 					req->async_event);
 		req->async_event = resolver->async.add_write (resolver->async.data,
-				req);
+				req->io->sock, req);
 		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
@@ -815,7 +815,7 @@ rdns_process_retransmit (int fd, void *arg)
 	if (r == 0) {
 		/* Retransmit one more time */
 		req->async_event = resolver->async.add_write (resolver->async.data,
-						req);
+						fd, req);
 		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
@@ -980,7 +980,8 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 			else {
 				ioc->srv = serv;
 				ioc->resolver = resolver;
-				ioc->async_io = resolver->async.add_read (resolver->async.data, ioc);
+				ioc->async_io = resolver->async.add_read (resolver->async.data,
+						ioc->sock, ioc);
 				serv->cur_io_channel = ioc;
 				HASH_ADD_INT (resolver->io_channels, sock, ioc);
 			}
@@ -1031,6 +1032,16 @@ rdns_resolver_new (void)
 	new = calloc (1, sizeof (struct rdns_resolver));
 
 	return new;
+}
+
+void
+rdns_resolver_async_bind (struct rdns_resolver *resolver,
+		struct rdns_async_context *ctx)
+{
+	if (resolver != NULL && ctx != NULL) {
+		resolver->async = *ctx;
+		resolver->async_binded = true;
+	}
 }
 
 const char *
