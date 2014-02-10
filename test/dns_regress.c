@@ -31,7 +31,7 @@ static int remain_tests = 0;
 static void
 rdns_regress_callback (struct rdns_reply *reply, void *arg)
 {
-	printf ("got result for host: %s\n", arg);
+	printf ("got result for host: %s\n", (const char *)arg);
 	rdns_request_unref (reply->request);
 
 	if (--remain_tests == 0) {
@@ -47,6 +47,7 @@ rdns_test_a (struct rdns_resolver *resolver)
 			"github.com",
 			"freebsd.org",
 			"kernel.org",
+			"www.ник.рф",
 			NULL
 	};
 	const char **cur;
@@ -75,8 +76,8 @@ main (int argc, char **argv)
 
 	resolver_event = rdns_resolver_new ();
 	rdns_bind_libevent (resolver_event, base);
-	rdns_resolver_add_server (resolver_event, "8.8.8.8", 0);
 	rdns_resolver_add_server (resolver_event, "208.67.222.222", 0);
+	rdns_resolver_add_server (resolver_event, "8.8.8.8", 0);
 
 	rdns_resolver_init (resolver_ev);
 	rdns_resolver_init (resolver_event);

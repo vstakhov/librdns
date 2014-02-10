@@ -178,9 +178,9 @@ utf8toutf32 (const unsigned char **pp, uint32_t *out, size_t *remain)
 	size_t reduce;
 
 	if (c & 0x80) {
-		if ((c & 0xE0) == 0xC0) {
+		if ((c & 0xE0) == 0xC0 && *remain >= 2) {
 			const unsigned c2 = *++p;
-			reduce = 1;
+			reduce = 2;
 			if ((c2 & 0xC0) == 0x80) {
 				*out = ((c & 0x1F) << 6) | (c2 & 0x3F);
 			}
@@ -188,11 +188,11 @@ utf8toutf32 (const unsigned char **pp, uint32_t *out, size_t *remain)
 				return -1;
 			}
 		}
-		else if ((c & 0xF0) == 0xE0 && *remain >= 2) {
+		else if ((c & 0xF0) == 0xE0 && *remain >= 3) {
 			const unsigned c2 = *++p;
 			if ((c2 & 0xC0) == 0x80) {
 				const unsigned c3 = *++p;
-				reduce = 2;
+				reduce = 3;
 				if ((c3 & 0xC0) == 0x80) {
 					*out = ((c & 0x0F) << 12) | ((c2 & 0x3F) << 6)
 							| (c3 & 0x3F);
@@ -205,13 +205,13 @@ utf8toutf32 (const unsigned char **pp, uint32_t *out, size_t *remain)
 				return -1;
 			}
 		}
-		else if ((c & 0xF8) == 0xF0 && *remain >= 3) {
+		else if ((c & 0xF8) == 0xF0 && *remain >= 4) {
 			const unsigned c2 = *++p;
 			if ((c2 & 0xC0) == 0x80) {
 				const unsigned c3 = *++p;
 				if ((c3 & 0xC0) == 0x80) {
 					const unsigned c4 = *++p;
-					reduce = 3;
+					reduce = 4;
 					if ((c4 & 0xC0) == 0x80) {
 						*out = ((c & 0x07) << 18) | ((c2 & 0x3F) << 12)
 								| ((c3 & 0x3F) << 6) | (c4 & 0x3F);
@@ -237,7 +237,7 @@ utf8toutf32 (const unsigned char **pp, uint32_t *out, size_t *remain)
 		reduce = 1;
 	}
 
-	*pp = p;
+	*pp = ++p;
 	*remain -= reduce;
 
 	return 0;
