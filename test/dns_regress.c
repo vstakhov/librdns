@@ -26,10 +26,17 @@
 #include "rdns_event.h"
 #include <stdio.h>
 
+static int remain_tests = 0;
+
 static void
 rdns_regress_callback (struct rdns_reply *reply, void *arg)
 {
 	printf ("got result for host: %s\n", arg);
+	rdns_request_unref (reply->request);
+
+	if (--remain_tests == 0) {
+		rdns_resolver_destroy (reply->resolver);
+	}
 }
 
 static void
@@ -46,6 +53,7 @@ rdns_test_a (struct rdns_resolver *resolver)
 
 	for (cur = names; *cur != NULL; cur ++) {
 		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, *cur, 1, DNS_REQUEST_A);
+		remain_tests ++;
 	}
 }
 
@@ -66,8 +74,7 @@ main (int argc, char **argv)
 	rdns_resolver_add_server (resolver_ev, "208.67.222.222", 0);
 
 	resolver_event = rdns_resolver_new ();
-	rdns_bind_libevent (resolver_ev, base);
-	/* Google and opendns */
+	rdns_bind_libevent (resolver_event, base);
 	rdns_resolver_add_server (resolver_event, "8.8.8.8", 0);
 	rdns_resolver_add_server (resolver_event, "208.67.222.222", 0);
 
@@ -75,11 +82,11 @@ main (int argc, char **argv)
 	rdns_resolver_init (resolver_event);
 
 	rdns_test_a (resolver_ev);
+	ev_loop (loop, 0);
+
 	rdns_test_a (resolver_event);
-
-	ev_run (loop, 0);
-
 	event_base_loop (base, 0);
+
 
 	return 0;
 }

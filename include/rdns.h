@@ -76,7 +76,6 @@ struct rdns_reply_entry {
 	union rdns_reply_element_un content;
 	uint16_t type;
 	uint16_t ttl;
-	struct rdns_request *req;
 	struct rdns_reply_entry *prev, *next;
 };
 
@@ -93,12 +92,15 @@ enum dns_rcode {
 	DNS_RC_NXRRSET	= 8,
 	DNS_RC_NOTAUTH	= 9,
 	DNS_RC_NOTZONE	= 10,
+	DNS_RC_TIMEOUT = 11,
+	DNS_RC_NETERR = 12
 };
 	
 struct rdns_reply {
 	struct rdns_request *request;
-	enum dns_rcode code;
+	struct rdns_resolver *resolver;
 	struct rdns_reply_entry *entries;
+	enum dns_rcode code;
 };
 
 struct rdns_async_context {
@@ -108,6 +110,7 @@ struct rdns_async_context {
 	void* (*add_write)(void *priv_data, int fd, void *user_data);
 	void (*del_write)(void *priv_data, void *ev_data);
 	void* (*add_timer)(void *priv_data, double after, void *user_data);
+	void* (*add_periodic)(void *priv_data, double after, void *user_data);
 	void (*repeat_timer)(void *priv_data, void *ev_data);
 	void (*del_timer)(void *priv_data, void *ev_data);
 	void (*cleanup)(void *priv_data);
@@ -143,6 +146,12 @@ bool rdns_resolver_add_server (struct rdns_resolver *resolver,
  * @return
  */
 bool rdns_resolver_init (struct rdns_resolver *resolver);
+
+/**
+ * Destroy resolver and free all associated structures
+ * @param resolver
+ */
+void rdns_resolver_destroy (struct rdns_resolver *resolver);
 
 /**
  * Make a DNS request
@@ -195,6 +204,7 @@ void rdns_request_unref (struct rdns_request *req);
 
 void rdns_process_read (int fd, void *arg);
 void rdns_process_timer (void *arg);
+void rdns_process_periodic (void *arg);
 void rdns_process_retransmit (int fd, void *arg);
 
 #endif

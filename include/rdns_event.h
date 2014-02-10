@@ -27,6 +27,7 @@
 
 #include <event.h>
 #include <stdlib.h>
+#include <string.h>
 #include "rdns.h"
 
 static void* rdns_libevent_add_read (void *priv_data, int fd, void *user_data);
@@ -34,6 +35,7 @@ static void rdns_libevent_del_read(void *priv_data, void *ev_data);
 static void* rdns_libevent_add_write (void *priv_data, int fd, void *user_data);
 static void rdns_libevent_del_write (void *priv_data, void *ev_data);
 static void* rdns_libevent_add_timer (void *priv_data, double after, void *user_data);
+static void* rdns_libevent_add_periodic (void *priv_data, double after, void *user_data);
 static void rdns_libevent_repeat_timer (void *priv_data, void *ev_data);
 static void rdns_libevent_del_timer (void *priv_data, void *ev_data);
 
@@ -41,17 +43,24 @@ static void
 rdns_bind_libevent (struct rdns_resolver *resolver, struct event_base *ev_base)
 {
 	struct rdns_async_context ev_ctx = {
-		.data = ev_base,
 		.add_read = rdns_libevent_add_read,
 		.del_read = rdns_libevent_del_read,
 		.add_write = rdns_libevent_add_write,
 		.del_write = rdns_libevent_del_write,
 		.add_timer = rdns_libevent_add_timer,
+		.add_periodic = rdns_libevent_add_periodic,
 		.repeat_timer = rdns_libevent_repeat_timer,
 		.del_timer = rdns_libevent_del_timer,
 		.cleanup = NULL
-	};
-	rdns_resolver_async_bind (resolver, &ev_ctx);
+	}, *nctx;
+
+	/* XXX: never got freed */
+	nctx = malloc (sizeof (struct rdns_async_context));
+	if (nctx != NULL) {
+		memcpy (nctx, &ev_ctx, sizeof (struct rdns_async_context));
+		nctx->data = ev_base;
+	}
+	rdns_resolver_async_bind (resolver, nctx);
 }
 
 static void
@@ -68,6 +77,12 @@ rdns_libevent_write_event (int fd, short what, void *ud)
 
 static void
 rdns_libevent_timer_event (int fd, short what, void *ud)
+{
+	rdns_process_timer (ud);
+}
+
+static void
+rdns_libevent_periodic_event (int fd, short what, void *ud)
 {
 	rdns_process_timer (ud);
 }
@@ -132,6 +147,21 @@ rdns_libevent_add_timer (void *priv_data, double after, void *user_data)
 	if (ev != NULL) {
 		double_to_tv (after, &tv);
 		event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_timer_event, user_data);
+		event_base_set (priv_data, ev);
+		event_add (ev, &tv);
+	}
+	return ev;
+}
+
+static void*
+rdns_libevent_add_periodic (void *priv_data, double after, void *user_data)
+{
+	struct event *ev;
+	struct timeval tv;
+	ev = malloc (sizeof (struct event));
+	if (ev != NULL) {
+		double_to_tv (after, &tv);
+		event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_periodic_event, user_data);
 		event_base_set (priv_data, ev);
 		event_add (ev, &tv);
 	}

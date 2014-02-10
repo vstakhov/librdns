@@ -159,6 +159,10 @@ typedef struct upstream_entry_s {
 } while (0)
 
 #define UPSTREAM_FOREACH(head, u) for ((u) = (head); (u) != NULL; (u) = (u)->up.next)
+#define UPSTREAM_FOREACH_SAFE(head, u, tmp) 								\
+    for ((u) = (head);														\
+    (u) != NULL && ((tmp = (u)->up.next) || true);							\
+    (u) = (tmp))
 
 #define UPSTREAM_REVIVE_ALL(head) do {										\
     __typeof(head) elt = (head);											\

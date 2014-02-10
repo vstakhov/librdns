@@ -69,6 +69,7 @@ struct rdns_server {
 
 struct rdns_request {
 	struct rdns_resolver *resolver;
+	struct rdns_async_context *async;
 	struct rdns_io_channel *io;
 
 	double timeout;
@@ -113,13 +114,11 @@ struct rdns_io_channel {
 };
 
 
-
 struct rdns_resolver {
 	struct rdns_server *servers;
-	unsigned int request_timeout;
-	unsigned int max_retransmits;
 	struct rdns_io_channel *io_channels; /**< hash of io chains indexed by socket        */
-	struct rdns_async_context async; /** async callbacks */
+	struct rdns_async_context *async; /** async callbacks */
+	void *periodic; /** periodic event for resolver */
 	bool async_binded;
 	bool initialized;
 };
@@ -217,7 +216,7 @@ enum dns_type {
 };
 /* enum dns_type */
 
-static const char dns_rcodes[16][16] = {
+static const char dns_rcodes[][16] = {
 	[DNS_RC_NOERROR]  = "NOERROR",
 	[DNS_RC_FORMERR]  = "FORMERR",
 	[DNS_RC_SERVFAIL] = "SERVFAIL",
@@ -229,16 +228,18 @@ static const char dns_rcodes[16][16] = {
 	[DNS_RC_NXRRSET]  = "NXRRSET",
 	[DNS_RC_NOTAUTH]  = "NOTAUTH",
 	[DNS_RC_NOTZONE]  = "NOTZONE",
+	[DNS_RC_TIMEOUT]  = "TIMEOUT",
+	[DNS_RC_NETERR]  = "NETERR",
 };
 
-static const char dns_types[7][16] = {
-		[DNS_REQUEST_A] = "A request",
-		[DNS_REQUEST_PTR] = "PTR request",
-		[DNS_REQUEST_MX] = "MX request",
-		[DNS_REQUEST_TXT] = "TXT request",
-		[DNS_REQUEST_SRV] = "SRV request",
-		[DNS_REQUEST_SPF] = "SPF request",
-		[DNS_REQUEST_AAA] = "AAA request"
+static const char dns_types[][16] = {
+	[DNS_REQUEST_A] = "A request",
+	[DNS_REQUEST_PTR] = "PTR request",
+	[DNS_REQUEST_MX] = "MX request",
+	[DNS_REQUEST_TXT] = "TXT request",
+	[DNS_REQUEST_SRV] = "SRV request",
+	[DNS_REQUEST_SPF] = "SPF request",
+	[DNS_REQUEST_AAA] = "AAA request"
 };
 
 /**

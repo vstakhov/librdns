@@ -38,8 +38,11 @@
 
 #define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
 
+static struct rdns_io_channel * rdns_ioc_ref (struct rdns_io_channel *ioc);
+static void rdns_ioc_unref (struct rdns_io_channel *ioc);
+
 static uint16_t
-dns_permutor_generate_id (void)
+rdns_permutor_generate_id (void)
 {
 	uint16_t id;
 
@@ -49,12 +52,11 @@ dns_permutor_generate_id (void)
 }
 
 
+#if 0
 struct dns_request_key {
 	uint16_t id;
 	uint16_t port;
 };
-
-#if 0
 /** Message compression (waste of resources in case of request) */
 struct dns_name_table {
 	uint8_t off;
@@ -91,7 +93,7 @@ try_compress_label (memory_pool_t *pool, uint8_t *target, uint8_t *start, uint8_
 
 /** Packet creating functions */
 static void
-allocate_packet (struct rdns_request *req, unsigned int namelen)
+rdns_allocate_packet (struct rdns_request *req, unsigned int namelen)
 {
 	namelen += 96 /* header */
 		+ 2 /* Trailing label */
@@ -103,14 +105,14 @@ allocate_packet (struct rdns_request *req, unsigned int namelen)
 }
 
 static void
-make_dns_header (struct rdns_request *req)
+rdns_make_dns_header (struct rdns_request *req)
 {
 	struct dns_header *header;
 	
 	/* Set DNS header values */
 	header = (struct dns_header *)req->packet;
 	memset (header, 0 , sizeof (struct dns_header));
-	header->qid = dns_permutor_generate_id ();
+	header->qid = rdns_permutor_generate_id ();
 	header->rd = 1;
 	header->qdcount = htons (1);
 	header->arcount = htons (1);
@@ -119,7 +121,7 @@ make_dns_header (struct rdns_request *req)
 }
 
 static bool
-maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigned int *label_len)
+rdns_maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigned int *label_len)
 {
 	bool ret = false;
 	uint8_t *p = begin;
@@ -150,7 +152,7 @@ maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigned int
 }
 
 static void
-format_dns_name (struct rdns_request *req, const char *name, unsigned int namelen)
+rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int namelen)
 {
 	uint8_t *pos = req->packet + req->pos, *end, *dot, *name_pos, *begin;
 	unsigned int remain = req->packet_len - req->pos - 5, label_len;
@@ -166,7 +168,7 @@ format_dns_name (struct rdns_request *req, const char *name, unsigned int namele
 	end = (uint8_t *)name + namelen;
 	for (;;) {
 		/* Check label for unicode characters */
-		if (maybe_punycode_label (begin, &name_pos, &dot, &label_len)) {
+		if (rdns_maybe_punycode_label (begin, &name_pos, &dot, &label_len)) {
 			/* Convert to ucs4 */
 			if (rdns_utf8_to_ucs4 ((char *)begin, label_len, &uclabel, &uclabel_len) == 0) {
 				punylabel_len = DNS_D_MAXLABEL;
@@ -246,9 +248,9 @@ rdns_add_rr (struct rdns_request *req, const char *name, enum dns_type type)
 	uint16_t *p;
 	int len = strlen (name);
 
-	allocate_packet (req, len);
-	make_dns_header (req);
-	format_dns_name (req, name, len);
+	rdns_allocate_packet (req, len);
+	rdns_make_dns_header (req);
+	rdns_format_dns_name (req, name, len);
 	p = (uint16_t *)(req->packet + req->pos);
 	*p++ = htons (type);
 	*p = htons (DNS_C_IN);
@@ -295,7 +297,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		while (tmp != NULL) {
 			/* Check for unique id */
 			header = (struct dns_header *)req->packet;
-			header->qid = dns_permutor_generate_id ();
+			header->qid = rdns_permutor_generate_id ();
 			req->id = header->qid;
 			if (++r > max_id_cycles) {
 				return -1;
@@ -310,7 +312,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 			if (new_req) {
 				/* Write when socket is ready */
 				HASH_ADD_INT (req->io->requests, id, req);
-				req->async_event = resolver->async.add_write (resolver->async.data,
+				req->async_event = resolver->async->add_write (resolver->async->data,
 					fd, req);
 			}
 			/*
@@ -329,7 +331,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		/* Add request to hash table */
 		HASH_ADD_INT (req->io->requests, id, req);
 		/* Fill timeout */
-		req->async_event = resolver->async.add_timer (resolver->async.data,
+		req->async_event = resolver->async->add_timer (resolver->async->data,
 				req->timeout, req);
 		req->state = RDNS_REQUEST_SENT;
 	}
@@ -338,7 +340,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 }
 
 static uint8_t *
-decompress_label (uint8_t *begin, uint16_t *len, uint16_t max)
+rdns_decompress_label (uint8_t *begin, uint16_t *len, uint16_t max)
 {
 	uint16_t offset = (*len);
 
@@ -353,7 +355,7 @@ decompress_label (uint8_t *begin, uint16_t *len, uint16_t max)
 #define UNCOMPRESS_DNS_OFFSET(p) (((*(p)) ^ DNS_COMPRESSION_BITS) << 8) + *((p) + 1)
 
 static uint8_t *
-dns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
+rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 {
 	uint8_t *p, *c, *l1, *l2;
 	uint16_t len1, len2;
@@ -381,7 +383,7 @@ dns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 		/* This may be compressed, so we need to decompress it */
 		if (len1 & DNS_COMPRESSION_BITS) {
 			len1 = UNCOMPRESS_DNS_OFFSET(p);
-			l1 = decompress_label (in, &len1, len);
+			l1 = rdns_decompress_label (in, &len1, len);
 			if (l1 == NULL) {
 				return NULL;
 			}
@@ -395,7 +397,7 @@ dns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 		}
 		if (len2 & DNS_COMPRESSION_BITS) {
 			len2 = UNCOMPRESS_DNS_OFFSET(p);
-			l2 = decompress_label (req->packet, &len2, len);
+			l2 = rdns_decompress_label (req->packet, &len2, len);
 			if (l2 == NULL) {
 				DNS_DEBUG ("invalid DNS pointer");
 				return NULL;
@@ -434,7 +436,7 @@ dns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 #define MAX_RECURSION_LEVEL 10
 
 static bool
-dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *rep,
+rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *rep,
 		int *remain, bool make_name)
 {
 	uint16_t namelen = 0;
@@ -463,7 +465,7 @@ dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *
 			if (end - p > 1) {
 				ptrs ++;
 				llen = UNCOMPRESS_DNS_OFFSET(p);
-				l = decompress_label (in, &llen, end - in);
+				l = rdns_decompress_label (in, &llen, end - in);
 				if (l == NULL) {
 					DNS_DEBUG ("invalid DNS pointer");
 					return false;
@@ -517,7 +519,7 @@ dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *
 		}
 		else if (llen & DNS_COMPRESSION_BITS) {
 			llen = UNCOMPRESS_DNS_OFFSET(p);
-			l = decompress_label (in, &llen, end - in);
+			l = rdns_decompress_label (in, &llen, end - in);
 			begin = l;
 			length = end - begin;
 			p = l + *l + 1;
@@ -545,14 +547,14 @@ end:
 #define SKIP(type) do { p += sizeof(type); *remain -= sizeof(type); } while (0)
 
 static int
-dns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct rdns_reply *rep, int *remain)
+rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct rdns_reply *rep, int *remain)
 {
 	uint8_t *p = *pos, parts;
 	uint16_t type, datalen, txtlen, copied, ttl;
 	bool parsed = false;
 
 	/* Skip the whole name */
-	if (! dns_parse_labels (in, NULL, &p, rep, remain, false)) {
+	if (! rdns_parse_labels (in, NULL, &p, rep, remain, false)) {
 		DNS_DEBUG ("bad RR name");
 		return -1;
 	}
@@ -594,7 +596,7 @@ dns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct r
 		}
 		break;
 	case DNS_T_PTR:
-		if (! dns_parse_labels (in, &elt->content.ptr.name, &p, rep, remain, true)) {
+		if (! rdns_parse_labels (in, &elt->content.ptr.name, &p, rep, remain, true)) {
 			DNS_DEBUG ("invalid labels in PTR record");
 			return -1;
 		}
@@ -603,7 +605,7 @@ dns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct r
 		break;
 	case DNS_T_MX:
 		GET16 (elt->content.mx.priority);
-		if (! dns_parse_labels (in, &elt->content.mx.name, &p, rep, remain, true)) {
+		if (! rdns_parse_labels (in, &elt->content.mx.name, &p, rep, remain, true)) {
 			DNS_DEBUG ("invalid labels in MX record");
 			return -1;
 		}
@@ -641,7 +643,7 @@ dns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct r
 		GET16 (elt->content.srv.priority);
 		GET16 (elt->content.srv.weight);
 		GET16 (elt->content.srv.port);
-		if (! dns_parse_labels (in, &elt->content.srv.target, &p, rep, remain, true)) {
+		if (! rdns_parse_labels (in, &elt->content.srv.target, &p, rep, remain, true)) {
 			DNS_DEBUG ("invalid labels in SRV record");
 			return -1;
 		}
@@ -668,8 +670,24 @@ dns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos, struct r
 	return 0;
 }
 
+static struct rdns_reply *
+rdns_make_reply (struct rdns_request *req, enum dns_rcode rcode)
+{
+	struct rdns_reply *rep;
+
+	rep = malloc (sizeof (struct rdns_reply));
+	if (rep != NULL) {
+		rep->request = req;
+		rep->resolver = req->resolver;
+		rep->entries = NULL;
+		rep->code = rcode;
+	}
+
+	return rep;
+}
+
 static bool
-dns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
+rdns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
 		struct rdns_request **req_out, struct rdns_reply **_rep)
 {
 	struct dns_header *header = (struct dns_header *)in;
@@ -707,7 +725,7 @@ dns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
 	 * Now we have request and query data is now at the end of header, so compare
 	 * request QR section and reply QR section
 	 */
-	if ((pos = dns_request_reply_cmp (req, in + sizeof (struct dns_header),
+	if ((pos = rdns_request_reply_cmp (req, in + sizeof (struct dns_header),
 			r - sizeof (struct dns_header))) == NULL) {
 		DNS_DEBUG ("DNS request with id %d is for different query, ignoring", (int)id);
 		return false;
@@ -715,17 +733,19 @@ dns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
 	/*
 	 * Now pos is in answer section, so we should extract data and form reply
 	 */
-	rep = malloc (sizeof (struct rdns_reply));
-	rep->request = req;
-	rep->entries = NULL;
-	rep->code = header->rcode;
+	rep = rdns_make_reply (req, header->rcode);
+
+	if (rep == NULL) {
+		DNS_DEBUG ("Cannot allocate memory for reply");
+		return false;
+	}
 
 	if (rep->code == DNS_RC_NOERROR) {
 		r -= pos - in;
 		/* Extract RR records */
 		for (i = 0; i < ntohs (header->ancount); i ++) {
 			elt = malloc (sizeof (struct rdns_reply_entry));
-			t = dns_parse_rr (in, elt, &pos, rep, &r);
+			t = rdns_parse_rr (in, elt, &pos, rep, &r);
 			if (t == -1) {
 				free (elt);
 				DNS_DEBUG ("incomplete reply");
@@ -756,7 +776,8 @@ rdns_process_read (int fd, void *arg)
 	/* First read packet from socket */
 	r = read (fd, in, sizeof (in));
 	if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
-		if (dns_parse_reply (fd, in, r, resolver, &req, &rep)) {
+		if (rdns_parse_reply (fd, in, r, resolver, &req, &rep)) {
+			UPSTREAM_OK (req->io->srv);
 			rdns_request_ref (req);
 			req->func (rep, req->arg);
 			rdns_request_unref (req);
@@ -769,33 +790,49 @@ rdns_process_timer (void *arg)
 {
 	struct rdns_request *req = (struct rdns_request *)arg;
 	struct rdns_resolver *resolver;
+	struct rdns_reply *rep;
 	int r;
 
 	resolver = req->resolver;
 
-	req->retransmits ++;
-	if (req->retransmits > resolver->max_retransmits) {
-		/* XXX: call the callback */
+	req->retransmits --;
+	if (req->retransmits == 0) {
+		UPSTREAM_FAIL (req->io->srv, time (NULL));
+		rep = rdns_make_reply (req, DNS_RC_TIMEOUT);
+		rdns_request_ref (req);
+		req->func (rep, req->arg);
 		rdns_request_unref (req);
+
 		return;
 	}
 
 	r = rdns_send_request (req, req->io->sock, false);
 	if (r == 0) {
 		/* Retransmit one more time */
-		resolver->async.del_timer (resolver->async.data,
+		req->async->del_timer (req->async->data,
 					req->async_event);
-		req->async_event = resolver->async.add_write (resolver->async.data,
+		req->async_event = req->async->add_write (req->async->data,
 				req->io->sock, req);
 		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
-		/* XXX: call the callback */
+		UPSTREAM_FAIL (req->io->srv, time (NULL));
+		rep = rdns_make_reply (req, DNS_RC_NETERR);
+		rdns_request_ref (req);
+		req->func (rep, req->arg);
 		rdns_request_unref (req);
 	}
 	else {
-		resolver->async.repeat_timer (resolver->async.data, req->async_event);
+		req->async->repeat_timer (req->async->data, req->async_event);
 	}
+}
+
+void
+rdns_process_periodic (void *arg)
+{
+	struct rdns_resolver *resolver = (struct rdns_resolver*)arg;
+
+	UPSTREAM_RESCAN (resolver->servers, time (NULL));
 }
 
 void
@@ -803,27 +840,31 @@ rdns_process_retransmit (int fd, void *arg)
 {
 	struct rdns_request *req = (struct rdns_request *)arg;
 	struct rdns_resolver *resolver;
+	struct rdns_reply *rep;
 	int r;
 
 	resolver = req->resolver;
 
-	resolver->async.del_write (resolver->async.data,
+	resolver->async->del_write (resolver->async->data,
 			req->async_event);
 
 	r = rdns_send_request (req, fd, false);
 
 	if (r == 0) {
 		/* Retransmit one more time */
-		req->async_event = resolver->async.add_write (resolver->async.data,
+		req->async_event = req->async->add_write (req->async->data,
 						fd, req);
 		req->state = RDNS_REQUEST_REGISTERED;
 	}
 	else if (r == -1) {
-		/* XXX: call the callback */
+		UPSTREAM_FAIL (req->io->srv, time (NULL));
+		rep = rdns_make_reply (req, DNS_RC_NETERR);
+		rdns_request_ref (req);
+		req->func (rep, req->arg);
 		rdns_request_unref (req);
 	}
 	else {
-		req->async_event = resolver->async.add_timer (resolver->async.data,
+		req->async_event = req->async->add_timer (req->async->data,
 			req->timeout, req);
 		req->state = RDNS_REQUEST_SENT;
 	}
@@ -836,9 +877,20 @@ rdns_request_free (struct rdns_request *req)
 		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
 			/* Remove from id hashes */
 			HASH_DEL (req->io->requests, req);
+			rdns_ioc_unref (req->io);
 		}
 		if (req->packet != NULL) {
 			free (req->packet);
+		}
+		if (req->state >= RDNS_REQUEST_SENT) {
+			/* Remove timer */
+			req->async->del_timer (req->async->data,
+					req->async_event);
+		}
+		else if (req->state == RDNS_REQUEST_REGISTERED) {
+			/* Remove retransmit event */
+			req->async->del_write (req->async->data,
+					req->async_event);
 		}
 		free (req);
 	}
@@ -856,6 +908,36 @@ rdns_request_unref (struct rdns_request *req)
 {
 	if (--req->ref <= 0) {
 		rdns_request_free (req);
+	}
+}
+
+static void
+rdns_ioc_free (struct rdns_io_channel *ioc)
+{
+	struct rdns_request *req, *rtmp;
+	struct rdns_async_context *async = ioc->resolver->async;
+
+	HASH_ITER (hh, ioc->requests, req, rtmp) {
+		HASH_DELETE (hh, ioc->requests, req);
+		rdns_request_unref (req);
+	}
+	async->del_read (async->data, ioc->async_io);
+	close (ioc->sock);
+	free (ioc);
+}
+
+static struct rdns_io_channel *
+rdns_ioc_ref (struct rdns_io_channel *ioc)
+{
+	ioc->ref ++;
+	return ioc;
+}
+
+static void
+rdns_ioc_unref (struct rdns_io_channel *ioc)
+{
+	if (--ioc->ref <= 0) {
+		rdns_ioc_free (ioc);
 	}
 }
 
@@ -924,10 +1006,11 @@ rdns_make_request_full (
 	/* Add EDNS RR */
 	rdns_add_edns0 (req);
 
-	req->retransmits = 0;
+	req->retransmits = repeats;
 	req->timeout = timeout;
 	req->io = NULL;
 	req->state = RDNS_REQUEST_NEW;
+	req->async = resolver->async;
 
 	UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
 
@@ -955,6 +1038,8 @@ rdns_make_request_full (
 		return NULL;
 	}
 
+	rdns_ioc_ref (req->io);
+
 	return req;
 }
 
@@ -980,13 +1065,19 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 			else {
 				ioc->srv = serv;
 				ioc->resolver = resolver;
-				ioc->async_io = resolver->async.add_read (resolver->async.data,
+				ioc->async_io = resolver->async->add_read (resolver->async->data,
 						ioc->sock, resolver);
+				ioc->ref = 1;
 				serv->cur_io_channel = ioc;
 				CDL_PREPEND (serv->io_channels, ioc);
 				HASH_ADD_INT (resolver->io_channels, sock, ioc);
 			}
 		}
+	}
+
+	if (resolver->async->add_periodic) {
+		resolver->periodic = resolver->async->add_periodic (resolver->async->data,
+				UPSTREAM_REVIVE_TIME, resolver);
 	}
 
 	resolver->initialized = true;
@@ -1039,11 +1130,33 @@ rdns_resolver_new (void)
 }
 
 void
+rdns_resolver_destroy (struct rdns_resolver *resolver)
+{
+	struct rdns_server *serv, *stmp;
+	struct rdns_io_channel *ioc, *itmp1, *itmp2;
+
+	if (resolver->initialized) {
+		if (resolver->periodic != NULL) {
+			resolver->async->del_timer (resolver->async->data, resolver->periodic);
+		}
+		/* Stop IO watch on all IO channels */
+		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {
+			CDL_FOREACH_SAFE (serv->io_channels, ioc, itmp1, itmp2) {
+				rdns_ioc_unref (ioc);
+			}
+			free (serv->name);
+			free (serv);
+		}
+	}
+	free (resolver);
+}
+
+void
 rdns_resolver_async_bind (struct rdns_resolver *resolver,
 		struct rdns_async_context *ctx)
 {
 	if (resolver != NULL && ctx != NULL) {
-		resolver->async = *ctx;
+		resolver->async = ctx;
 		resolver->async_binded = true;
 	}
 }
