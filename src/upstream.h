@@ -137,7 +137,7 @@ typedef struct upstream_entry_s {
           upstream_fatal ("malloc failed");									\
         }																	\
         memcpy (nup, cd->upstreams, cd->nelts * sizeof (void *));			\
-        upstream_free (cd->nelts * sizeof (void *), cd->upstreams);			\
+        upstream_free (cd->nelts * sizeof (void *), cd->upstreams);		\
         cd->upstreams = nup;												\
         cd->allocated_nelts *= 2;											\
       }																		\
@@ -156,6 +156,23 @@ typedef struct upstream_entry_s {
     (u)->up.errors = 0;														\
     (u)->up.dead = 0;														\
     (u)->up.parent = (u);													\
+} while (0)
+
+#define UPSTREAM_DEL(head, u) do {											\
+    if (head != NULL) {														\
+        struct upstream_common_data *cd = (head)->up.common;				\
+        if ((u)->up.next != NULL) {											\
+            (head) = (u)->up.next;											\
+            cd->nelts --;													\
+            cd->alive --;													\
+        }																	\
+        else {																\
+            upstream_free (cd->allocated_nelts * sizeof (void *), 			\
+                cd->upstreams);												\
+            upstream_free (sizeof (struct upstream_common_data), cd);		\
+            (head) = NULL;													\
+        }																	\
+    }																		\
 } while (0)
 
 #define UPSTREAM_FOREACH(head, u) for ((u) = (head); (u) != NULL; (u) = (u)->up.next)

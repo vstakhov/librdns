@@ -39,7 +39,7 @@
 #define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
 
 static struct rdns_io_channel * rdns_ioc_ref (struct rdns_io_channel *ioc);
-static void rdns_ioc_unref (struct rdns_io_channel *ioc);
+static void rdns_ioc_unref (struct rdns_io_channel *ioc, struct rdns_async_context *async);
 
 static uint16_t
 rdns_permutor_generate_id (void)
@@ -271,10 +271,8 @@ rdns_add_edns0 (struct rdns_request *req)
 	*p16++ = htons (UDP_PACKET_SIZE);
 	/* Extended rcode 00 00 */
 	*p16++ = 0;
-	/* Z 10000000 00000000 to allow dnssec */
-	p8 = (uint8_t *)p16++;
-	/* Not a good time for DNSSEC */
-	*p8 = 0x00;
+	/* Z 10000000 00000000 to allow dnssec, disabled currently */
+	*p16++ = 0;
 	/* Length */
 	*p16 = 0;
 	req->pos += sizeof (uint8_t) + sizeof (uint16_t) * 5;
@@ -681,6 +679,7 @@ rdns_make_reply (struct rdns_request *req, enum dns_rcode rcode)
 		rep->resolver = req->resolver;
 		rep->entries = NULL;
 		rep->code = rcode;
+		req->reply = rep;
 	}
 
 	return rep;
@@ -871,16 +870,45 @@ rdns_process_retransmit (int fd, void *arg)
 }
 
 static void
+rdns_reply_free (struct rdns_reply *rep)
+{
+	struct rdns_reply_entry *entry, *tmp;
+
+	LL_FOREACH_SAFE (rep->entries, entry, tmp) {
+		switch (entry->type) {
+		case DNS_T_PTR:
+			free (entry->content.ptr.name);
+			break;
+		case DNS_T_MX:
+			free (entry->content.mx.name);
+			break;
+		case DNS_T_TXT:
+		case DNS_T_SPF:
+			free (entry->content.txt.data);
+			break;
+		case DNS_T_SRV:
+			free (entry->content.srv.target);
+			break;
+		}
+		free (entry);
+	}
+	free (rep);
+}
+
+static void
 rdns_request_free (struct rdns_request *req)
 {
 	if (req != NULL) {
 		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
 			/* Remove from id hashes */
 			HASH_DEL (req->io->requests, req);
-			rdns_ioc_unref (req->io);
+			rdns_ioc_unref (req->io, req->async);
 		}
 		if (req->packet != NULL) {
 			free (req->packet);
+		}
+		if (req->reply != NULL) {
+			rdns_reply_free (req->reply);
 		}
 		if (req->state >= RDNS_REQUEST_SENT) {
 			/* Remove timer */
@@ -912,10 +940,9 @@ rdns_request_unref (struct rdns_request *req)
 }
 
 static void
-rdns_ioc_free (struct rdns_io_channel *ioc)
+rdns_ioc_free (struct rdns_io_channel *ioc, struct rdns_async_context *async)
 {
 	struct rdns_request *req, *rtmp;
-	struct rdns_async_context *async = ioc->resolver->async;
 
 	HASH_ITER (hh, ioc->requests, req, rtmp) {
 		HASH_DELETE (hh, ioc->requests, req);
@@ -934,10 +961,10 @@ rdns_ioc_ref (struct rdns_io_channel *ioc)
 }
 
 static void
-rdns_ioc_unref (struct rdns_io_channel *ioc)
+rdns_ioc_unref (struct rdns_io_channel *ioc, struct rdns_async_context *async)
 {
 	if (--ioc->ref <= 0) {
-		rdns_ioc_free (ioc);
+		rdns_ioc_free (ioc, async);
 	}
 }
 
@@ -973,6 +1000,7 @@ rdns_make_request_full (
 	req->func = cb;
 	req->arg = cbdata;
 	req->ref = 1;
+	req->reply = NULL;
 	
 	va_start (args, queries);
 	for (i = 0; i < queries; i ++) {
@@ -1142,8 +1170,10 @@ rdns_resolver_destroy (struct rdns_resolver *resolver)
 		/* Stop IO watch on all IO channels */
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {
 			CDL_FOREACH_SAFE (serv->io_channels, ioc, itmp1, itmp2) {
-				rdns_ioc_unref (ioc);
+				HASH_DELETE (hh, resolver->io_channels, ioc);
+				rdns_ioc_unref (ioc, resolver->async);
 			}
+			UPSTREAM_DEL (resolver->servers, serv);
 			free (serv->name);
 			free (serv);
 		}

@@ -71,6 +71,7 @@ struct rdns_request {
 	struct rdns_resolver *resolver;
 	struct rdns_async_context *async;
 	struct rdns_io_channel *io;
+	struct rdns_reply *reply;
 
 	double timeout;
 	unsigned int retransmits;
