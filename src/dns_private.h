@@ -120,6 +120,9 @@ struct rdns_resolver {
 	struct rdns_io_channel *io_channels; /**< hash of io chains indexed by socket        */
 	struct rdns_async_context *async; /** async callbacks */
 	void *periodic; /** periodic event for resolver */
+
+	struct rdns_plugin *network_plugin;
+
 	bool async_binded;
 	bool initialized;
 };

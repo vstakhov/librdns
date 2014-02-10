@@ -116,6 +116,27 @@ struct rdns_async_context {
 	void (*cleanup)(void *priv_data);
 };
 
+/**
+ * Type of rdns plugin
+ */
+enum rdns_plugin_type {
+	RDNS_PLUGIN_NETWORK = 0//!< use the specified plugin instead of send/recv functions
+};
+
+typedef ssize_t (*rdns_network_send_callback) (int fd, const void *buf, size_t len);
+typedef ssize_t (*rdns_network_recv_callback) (int fd, void *buf, size_t len);
+
+struct rdns_plugin {
+	enum rdns_plugin_type type;
+	union {
+		struct {
+			rdns_network_send_callback send_cb;
+			rdns_network_recv_callback recv_cb;
+		} network_plugin;
+	} cb;
+	void *data;
+};
+
 /* Rspamd DNS API */
 
 /**
@@ -139,6 +160,14 @@ void rdns_resolver_async_bind (struct rdns_resolver *resolver,
  */
 bool rdns_resolver_add_server (struct rdns_resolver *resolver,
 		const char *name, int priority);
+
+/**
+ * Register new plugin for rdns resolver
+ * @param resolver
+ * @param plugin
+ */
+void rdns_resolver_register_plugin (struct rdns_resolver *resolver,
+		struct rdns_plugin *plugin);
 
 /**
  * Init DNS resolver

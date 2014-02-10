@@ -304,7 +304,13 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		}
 	}
 
-	r = send (fd, req->packet, req->pos, 0);
+	if (resolver->network_plugin == NULL) {
+		r = send (fd, req->packet, req->pos, 0);
+	}
+	else {
+		r = resolver->network_plugin->cb.network_plugin.send_cb (fd, req->packet,
+				req->pos);
+	}
 	if (r == -1) {
 		if (errno == EAGAIN || errno == EINTR) {
 			if (new_req) {
@@ -773,7 +779,12 @@ rdns_process_read (int fd, void *arg)
 	/* This function is called each time when we have data on one of server's sockets */
 	
 	/* First read packet from socket */
-	r = read (fd, in, sizeof (in));
+	if (resolver->network_plugin == NULL) {
+		r = read (fd, in, sizeof (in));
+	}
+	else {
+		r = resolver->network_plugin->cb.network_plugin.recv_cb (fd, in, sizeof (in));
+	}
 	if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
 		if (rdns_parse_reply (fd, in, r, resolver, &req, &rep)) {
 			UPSTREAM_OK (req->io->srv);
@@ -1111,6 +1122,18 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 	resolver->initialized = true;
 
 	return true;
+}
+
+void
+rdns_resolver_register_plugin (struct rdns_resolver *resolver,
+		struct rdns_plugin *plugin)
+{
+	if (resolver != NULL && plugin != NULL) {
+		/* XXX: support only network plugin now, and only a single one */
+		if (plugin->type == RDNS_PLUGIN_NETWORK) {
+			resolver->network_plugin = plugin;
+		}
+	}
 }
 
 bool
