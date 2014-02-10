@@ -22,10 +22,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef RDNS_EV_H_
-#define RDNS_EV_H_
+#ifndef RDNS_EVENT_H_
+#define RDNS_EVENT_H_
 
 #include <event.h>
+#include <stdlib.h>
 #include "rdns.h"
 
 static void* rdns_libevent_add_read (void *priv_data, int fd, void *user_data);

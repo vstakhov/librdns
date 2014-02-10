@@ -16,6 +16,8 @@ IF(NOT HAVE_GETADDRINFO)
 	MESSAGE(FATAL_ERROR "Your system does not support getaddrinfo call, please consider upgrading it to run librdns")
 ENDIF(NOT HAVE_GETADDRINFO)
 
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+
 SET(LIBRDNSSRC			src/dns_util.c
 						src/dns.c
 						src/punycode.c)
@@ -26,6 +28,9 @@ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/src"
 					"${CMAKE_BINARY_DIR}/include"  
 					"${CMAKE_SOURCE_DIR}/contrib/uthash"
 					"${CMAKE_SOURCE_DIR}/contrib/libottery")
+
 ADD_SUBDIRECTORY(contrib/libottery)
-ADD_LIBRARY(librdns STATIC ${LIBRDNSSRC})
-TARGET_LINK_LIBRARIES(librdns rdns-ottery)
+ADD_SUBDIRECTORY(test)
+
+ADD_LIBRARY(rdns STATIC ${LIBRDNSSRC})
+TARGET_LINK_LIBRARIES(rdns rdns-ottery)

@@ -26,6 +26,7 @@
 #define RDNS_EV_H_
 
 #include <ev.h>
+#include <stdlib.h>
 #include "rdns.h"
 
 static void* rdns_libev_add_read (void *priv_data, int fd, void *user_data);
@@ -132,7 +133,7 @@ rdns_libev_add_timer (void *priv_data, double after, void *user_data)
 static void
 rdns_libev_repeat_timer (void *priv_data, void *ev_data)
 {
-	ev_io *ev = ev_data;
+	ev_timer *ev = ev_data;
 	if (ev != NULL) {
 		ev_timer_again (priv_data, ev);
 	}
@@ -141,9 +142,9 @@ rdns_libev_repeat_timer (void *priv_data, void *ev_data)
 static void
 rdns_libev_del_timer (void *priv_data, void *ev_data)
 {
-	ev_io *ev = ev_data;
+	ev_timer *ev = ev_data;
 	if (ev != NULL) {
-		ev_io_stop (priv_data, ev);
+		ev_timer_stop (priv_data, ev);
 		free (ev);
 	}
 }

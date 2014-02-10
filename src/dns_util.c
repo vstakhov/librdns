@@ -133,7 +133,6 @@ rdns_make_unix_socket (const char *path, struct sockaddr_un *addr, int type)
 
 	if (r == -1) {
 		if (errno != EINPROGRESS) {
-			msg_warn ("bind/connect failed %s: %d, '%s'", addr->sun_path, errno, strerror (errno));
 			goto out;
 		}
 	}

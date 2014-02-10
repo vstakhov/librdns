@@ -36,7 +36,7 @@
 #include "dns_private.h"
 #include "ottery.h"
 
-#define DNS_DEBUG(...) do { } while (0);
+#define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
 
 static uint16_t
 dns_permutor_generate_id (void)
@@ -447,7 +447,7 @@ dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *
 	/* First go through labels and calculate name length */
 	while (p - begin < length) {
 		if (ptrs > MAX_RECURSION_LEVEL) {
-			msg_warn ("dns pointers are nested too much");
+			DNS_DEBUG ("dns pointers are nested too much");
 			return false;
 		}
 		llen = *p;
@@ -475,7 +475,7 @@ dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *
 					got_compression = true;
 				}
 				if (l < in || l > begin + length) {
-					msg_warn  ("invalid pointer in DNS packet");
+					DNS_DEBUG  ("invalid pointer in DNS packet");
 					return false;
 				}
 				begin = l;
@@ -485,7 +485,7 @@ dns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *
 				labels ++;
 			}
 			else {
-				msg_warn ("DNS packet has incomplete compressed label, input length: %d bytes, remain: %d",
+				DNS_DEBUG ("DNS packet has incomplete compressed label, input length: %d bytes, remain: %d",
 						*remain, new_remain);
 				return false;
 			}
@@ -973,7 +973,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 	UPSTREAM_FOREACH (resolver->servers, serv) {
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
-			ioc->sock = make_universal_socket (serv->name, dns_port, SOCK_DGRAM);
+			ioc->sock = rdns_make_client_socket (serv->name, dns_port, SOCK_DGRAM);
 			if (ioc->sock == -1) {
 				return false;
 			}
@@ -981,8 +981,9 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 				ioc->srv = serv;
 				ioc->resolver = resolver;
 				ioc->async_io = resolver->async.add_read (resolver->async.data,
-						ioc->sock, ioc);
+						ioc->sock, resolver);
 				serv->cur_io_channel = ioc;
+				CDL_PREPEND (serv->io_channels, ioc);
 				HASH_ADD_INT (resolver->io_channels, sock, ioc);
 			}
 		}
@@ -1019,6 +1020,9 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 		return false;
 	}
 
+	/* XXX: make this configurable */
+	serv->io_cnt = 8;
+
 	UPSTREAM_ADD (resolver->servers, serv, priority);
 
 	return true;
@@ -1051,7 +1055,7 @@ dns_strerror (enum dns_rcode rcode)
 	static char numbuf[16];
 
 	if ('\0' == dns_rcodes[rcode][0]) {
-		rdns_snprintf (numbuf, sizeof (numbuf), "UNKNOWN: %d", (int)rcode);
+		snprintf (numbuf, sizeof (numbuf), "UNKNOWN: %d", (int)rcode);
 		return numbuf;
 	}
 	return dns_rcodes[rcode];
