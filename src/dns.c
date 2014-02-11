@@ -1198,7 +1198,7 @@ rdns_resolver_destroy (struct rdns_resolver *resolver)
 
 	if (resolver->initialized) {
 		if (resolver->periodic != NULL) {
-			resolver->async->del_timer (resolver->async->data, resolver->periodic);
+			resolver->async->del_periodic (resolver->async->data, resolver->periodic);
 		}
 		/* Stop IO watch on all IO channels */
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {

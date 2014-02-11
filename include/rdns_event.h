@@ -35,9 +35,17 @@ static void rdns_libevent_del_read(void *priv_data, void *ev_data);
 static void* rdns_libevent_add_write (void *priv_data, int fd, void *user_data);
 static void rdns_libevent_del_write (void *priv_data, void *ev_data);
 static void* rdns_libevent_add_timer (void *priv_data, double after, void *user_data);
-static void* rdns_libevent_add_periodic (void *priv_data, double after, void *user_data);
+static void* rdns_libevent_add_periodic (void *priv_data, double after,
+		rdns_periodic_callback cb, void *user_data);
+static void rdns_libevent_del_periodic (void *priv_data, void *ev_data);
 static void rdns_libevent_repeat_timer (void *priv_data, void *ev_data);
 static void rdns_libevent_del_timer (void *priv_data, void *ev_data);
+
+struct rdns_event_periodic_cbdata {
+	struct event *ev;
+	rdns_periodic_callback cb;
+	void *cbdata;
+};
 
 static void
 rdns_bind_libevent (struct rdns_resolver *resolver, struct event_base *ev_base)
@@ -49,6 +57,7 @@ rdns_bind_libevent (struct rdns_resolver *resolver, struct event_base *ev_base)
 		.del_write = rdns_libevent_del_write,
 		.add_timer = rdns_libevent_add_timer,
 		.add_periodic = rdns_libevent_add_periodic,
+		.del_periodic = rdns_libevent_del_periodic,
 		.repeat_timer = rdns_libevent_repeat_timer,
 		.del_timer = rdns_libevent_del_timer,
 		.cleanup = NULL
@@ -84,7 +93,8 @@ rdns_libevent_timer_event (int fd, short what, void *ud)
 static void
 rdns_libevent_periodic_event (int fd, short what, void *ud)
 {
-	rdns_process_timer (ud);
+	struct rdns_event_periodic_cbdata *cbdata = ud;
+	cbdata->cb (cbdata->cbdata);
 }
 
 static void*
@@ -133,7 +143,7 @@ rdns_libevent_del_write (void *priv_data, void *ev_data)
 	}
 }
 
-#define double_to_tv(dbl, tv) do {											\
+#define rdns_event_double_to_tv(dbl, tv) do {											\
     (tv)->tv_sec = (int)(dbl); 												\
     (tv)->tv_usec = ((dbl) - (int)(dbl))*1000*1000; 						\
 } while(0)
@@ -145,7 +155,7 @@ rdns_libevent_add_timer (void *priv_data, double after, void *user_data)
 	struct timeval tv;
 	ev = malloc (sizeof (struct event));
 	if (ev != NULL) {
-		double_to_tv (after, &tv);
+		rdns_event_double_to_tv (after, &tv);
 		event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_timer_event, user_data);
 		event_base_set (priv_data, ev);
 		event_add (ev, &tv);
@@ -154,18 +164,42 @@ rdns_libevent_add_timer (void *priv_data, double after, void *user_data)
 }
 
 static void*
-rdns_libevent_add_periodic (void *priv_data, double after, void *user_data)
+rdns_libevent_add_periodic (void *priv_data, double after,
+		rdns_periodic_callback cb, void *user_data)
 {
 	struct event *ev;
 	struct timeval tv;
+	struct rdns_event_periodic_cbdata *cbdata;
+
 	ev = malloc (sizeof (struct event));
 	if (ev != NULL) {
-		double_to_tv (after, &tv);
-		event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_periodic_event, user_data);
-		event_base_set (priv_data, ev);
-		event_add (ev, &tv);
+		cbdata = malloc (sizeof (struct rdns_event_periodic_cbdata));
+		if (cbdata != NULL) {
+			rdns_event_double_to_tv (after, &tv);
+			cbdata->cb = cb;
+			cbdata->cbdata = user_data;
+			cbdata->ev = ev;
+			event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_timer_event, cbdata);
+			event_base_set (priv_data, ev);
+			event_add (ev, &tv);
+		}
+		else {
+			free (ev);
+			return NULL;
+		}
 	}
-	return ev;
+	return cbdata;
+}
+
+static void
+rdns_libevent_del_periodic (void *priv_data, void *ev_data)
+{
+	struct rdns_event_periodic_cbdata *cbdata = ev_data;
+	if (cbdata != NULL) {
+		event_del (cbdata->ev);
+		free (cbdata->ev);
+		free (cbdata);
+	}
 }
 
 static void
@@ -174,7 +208,7 @@ rdns_libevent_repeat_timer (void *priv_data, void *ev_data)
 	/* XXX: libevent hides timeval, so timeouts are persistent here */
 }
 
-#undef double_to_tv
+#undef rdns_event_double_to_tv
 
 static void
 rdns_libevent_del_timer (void *priv_data, void *ev_data)

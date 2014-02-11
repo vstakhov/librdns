@@ -35,9 +35,17 @@ static void rdns_libev_del_read(void *priv_data, void *ev_data);
 static void* rdns_libev_add_write (void *priv_data, int fd, void *user_data);
 static void rdns_libev_del_write (void *priv_data, void *ev_data);
 static void* rdns_libev_add_timer (void *priv_data, double after, void *user_data);
-static void* rdns_libev_add_periodic (void *priv_data, double after, void *user_data);
+static void* rdns_libev_add_periodic (void *priv_data, double after,
+		rdns_periodic_callback cb, void *user_data);
+static void rdns_libev_del_periodic (void *priv_data, void *ev_data);
 static void rdns_libev_repeat_timer (void *priv_data, void *ev_data);
 static void rdns_libev_del_timer (void *priv_data, void *ev_data);
+
+struct rdns_ev_periodic_cbdata {
+	ev_timer *ev;
+	rdns_periodic_callback cb;
+	void *cbdata;
+};
 
 static void
 rdns_bind_libev (struct rdns_resolver *resolver, struct ev_loop *loop)
@@ -49,6 +57,7 @@ rdns_bind_libev (struct rdns_resolver *resolver, struct ev_loop *loop)
 		.del_write = rdns_libev_del_write,
 		.add_timer = rdns_libev_add_timer,
 		.add_periodic = rdns_libev_add_periodic,
+		.del_periodic = rdns_libev_del_periodic,
 		.repeat_timer = rdns_libev_repeat_timer,
 		.del_timer = rdns_libev_del_timer,
 		.cleanup = NULL
@@ -84,7 +93,8 @@ rdns_libev_timer_event (struct ev_loop *loop, ev_timer *ev, int revents)
 static void
 rdns_libev_periodic_event (struct ev_loop *loop, ev_timer *ev, int revents)
 {
-	rdns_process_periodic (ev->data);
+	struct rdns_ev_periodic_cbdata *cbdata = ev->data;
+	cbdata->cb (cbdata->cbdata);
 }
 
 static void*
@@ -146,16 +156,40 @@ rdns_libev_add_timer (void *priv_data, double after, void *user_data)
 }
 
 static void*
-rdns_libev_add_periodic (void *priv_data, double after, void *user_data)
+rdns_libev_add_periodic (void *priv_data, double after,
+		rdns_periodic_callback cb, void *user_data)
 {
 	ev_timer *ev;
+	struct rdns_ev_periodic_cbdata *cbdata;
+
 	ev = malloc (sizeof (ev_timer));
 	if (ev != NULL) {
-		ev_timer_init (ev, rdns_libev_periodic_event, after, after);
-		ev->data = user_data;
-		ev_timer_start (priv_data, ev);
+		cbdata = malloc (sizeof (struct rdns_ev_periodic_cbdata));
+		if (cbdata != NULL) {
+			cbdata->cb = cb;
+			cbdata->cbdata = user_data;
+			cbdata->ev = ev;
+			ev_timer_init (ev, rdns_libev_periodic_event, after, after);
+			ev->data = cbdata;
+			ev_timer_start (priv_data, ev);
+		}
+		else {
+			free (ev);
+			return NULL;
+		}
 	}
-	return ev;
+	return cbdata;
+}
+
+static void
+rdns_libev_del_periodic (void *priv_data, void *ev_data)
+{
+	struct rdns_ev_periodic_cbdata *cbdata = ev_data;
+	if (cbdata != NULL) {
+		ev_timer_stop (priv_data, cbdata->ev);
+		free (cbdata->ev);
+		free (cbdata);
+	}
 }
 
 static void

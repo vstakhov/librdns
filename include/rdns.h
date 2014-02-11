@@ -113,10 +113,11 @@ struct rdns_async_context {
 	void* (*add_write)(void *priv_data, int fd, void *user_data);
 	void (*del_write)(void *priv_data, void *ev_data);
 	void* (*add_timer)(void *priv_data, double after, void *user_data);
-	void* (*add_periodic)(void *priv_data, double after,
-			rdns_periodic_callback cb, void *user_data);
 	void (*repeat_timer)(void *priv_data, void *ev_data);
 	void (*del_timer)(void *priv_data, void *ev_data);
+	void* (*add_periodic)(void *priv_data, double after,
+		rdns_periodic_callback cb, void *user_data);
+	void (*del_periodic)(void *priv_data, void *ev_data);
 	void (*cleanup)(void *priv_data);
 };
 
