@@ -121,7 +121,12 @@ rdns_curve_client_key_ref (struct rdns_curve_client_key *key)
 static void
 rdns_curve_client_key_unref (struct rdns_curve_client_key *key)
 {
+	struct rdns_curve_nm_entry *nm, *tmp;
+
 	if (--key->ref == 0) {
+		DL_FOREACH_SAFE (key->nms, nm, tmp) {
+			free (nm);
+		}
 		free (key);
 	}
 }
