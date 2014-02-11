@@ -29,10 +29,7 @@
 #include "rdns.h"
 #include "upstream.h"
 
-/* Upstream timeouts */
-#define DEFAULT_UPSTREAM_ERROR_TIME 10
-#define DEFAULT_UPSTREAM_DEAD_TIME 300
-#define DEFAULT_UPSTREAM_MAXERRORS 10
+#define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
 
 static const unsigned base = 36;
 static const unsigned t_min = 1;
@@ -96,7 +93,7 @@ struct rdns_request {
 
 	void *async_event;
 
-	void *plugin_data;
+	void *network_plugin_data;
 
 	UT_hash_handle hh;
 };

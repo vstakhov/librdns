@@ -31,7 +31,7 @@ struct rdns_curve_ctx;
  * Create new dnscurve ctx
  * @return
  */
-struct rdns_curve_ctx* rdns_curve_ctx_new (void);
+struct rdns_curve_ctx* rdns_curve_ctx_new (double rekey_interval);
 
 /**
  * Add key for server `name`

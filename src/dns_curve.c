@@ -35,6 +35,7 @@ ssize_t rdns_curve_send (struct rdns_request *req, void *plugin_data);
 ssize_t rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len,
 		void *plugin_data, struct rdns_request **req_out);
 void rdns_curve_finish_request (struct rdns_request *req, void *plugin_data);
+void rdns_curve_dtor (struct rdns_resolver *resolver, void *plugin_data);
 #endif
 
 struct rdns_curve_entry {
@@ -77,6 +78,8 @@ struct rdns_curve_ctx {
 	struct rdns_curve_entry *entries;
 	struct rdns_curve_client_key *cur_key;
 	struct rdns_curve_request *requests;
+	double key_refresh_interval;
+	void *key_refresh_event;
 };
 
 static struct rdns_curve_client_key *
@@ -133,11 +136,12 @@ rdns_curve_client_key_unref (struct rdns_curve_client_key *key)
 }
 
 struct rdns_curve_ctx*
-rdns_curve_ctx_new (void)
+rdns_curve_ctx_new (double key_refresh_interval)
 {
 	struct rdns_curve_ctx *new;
 
 	new = calloc (1, sizeof (struct rdns_curve_ctx));
+	new->key_refresh_interval = key_refresh_interval;
 
 	return new;
 }
@@ -176,12 +180,26 @@ void rdns_curve_ctx_destroy (struct rdns_curve_ctx *ctx)
 	free (ctx);
 }
 
+static void
+rdns_curve_refresh_key_callback (void *user_data)
+{
+	struct rdns_curve_ctx *ctx = user_data;
+
+	DNS_DEBUG ("refresh curve keys");
+	rdns_curve_client_key_unref (ctx->cur_key);
+	ctx->cur_key = rdns_curve_client_key_ref (rdns_curve_client_key_new (ctx));
+}
+
 void
 rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		struct rdns_curve_ctx *ctx)
 {
 #ifdef HAVE_SODIUM
 	struct rdns_plugin *plugin;
+
+	if (!resolver->async_binded) {
+		return;
+	}
 
 	plugin = calloc (1, sizeof (struct rdns_plugin));
 	if (plugin != NULL) {
@@ -190,8 +208,14 @@ rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		plugin->cb.network_plugin.send_cb = rdns_curve_send;
 		plugin->cb.network_plugin.recv_cb = rdns_curve_recv;
 		plugin->cb.network_plugin.finish_cb = rdns_curve_finish_request;
+		plugin->dtor = rdns_curve_dtor;
 		sodium_init ();
 		ctx->cur_key = rdns_curve_client_key_ref (rdns_curve_client_key_new (ctx));
+		if (ctx->key_refresh_interval > 0) {
+			ctx->key_refresh_event = resolver->async->add_periodic (
+					resolver->async->data, ctx->key_refresh_interval,
+					rdns_curve_refresh_key_callback, ctx);
+		}
 		rdns_resolver_register_plugin (resolver, plugin);
 	}
 #endif
@@ -249,7 +273,7 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 		creq->req = req;
 		creq->nm = nm;
 		HASH_ADD_KEYPTR (hh, ctx->requests, creq->nonce, 12, creq);
-		req->plugin_data = creq;
+		req->network_plugin_data = creq;
 		ctx->cur_key->counter ++;
 		ctx->cur_key->uses ++;
 
@@ -268,7 +292,7 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 	}
 	else {
 		ret = write (req->io->sock, req->packet, req->pos);
-		req->plugin_data = NULL;
+		req->network_plugin_data = NULL;
 	}
 
 	return ret;
@@ -322,12 +346,24 @@ void
 rdns_curve_finish_request (struct rdns_request *req, void *plugin_data)
 {
 	struct rdns_curve_ctx *ctx = (struct rdns_curve_ctx *)plugin_data;
-	struct rdns_curve_request *creq = req->plugin_data;
+	struct rdns_curve_request *creq = req->network_plugin_data;
 
 	if (creq != NULL) {
 		rdns_curve_client_key_unref (creq->key);
 		HASH_DELETE (hh, ctx->requests, creq);
 	}
+}
+
+void
+rdns_curve_dtor (struct rdns_resolver *resolver, void *plugin_data)
+{
+	struct rdns_curve_ctx *ctx = (struct rdns_curve_ctx *)plugin_data;
+
+	if (ctx->key_refresh_event != NULL) {
+		resolver->async->del_periodic (resolver->async->data,
+				ctx->key_refresh_event);
+	}
+	rdns_curve_client_key_unref (ctx->cur_key);
 }
 
 #endif

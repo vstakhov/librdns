@@ -36,8 +36,6 @@
 #include "dns_private.h"
 #include "ottery.h"
 
-#define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
-
 static struct rdns_io_channel * rdns_ioc_ref (struct rdns_io_channel *ioc);
 static void rdns_ioc_unref (struct rdns_io_channel *ioc, struct rdns_async_context *async);
 
@@ -941,6 +939,10 @@ rdns_request_free (struct rdns_request *req)
 			req->async->del_write (req->async->data,
 					req->async_event);
 		}
+		if (req->network_plugin_data != NULL) {
+			req->resolver->network_plugin->cb.network_plugin.finish_cb (
+					req, req->resolver->network_plugin->data);
+		}
 		free (req);
 	}
 }
@@ -1022,6 +1024,7 @@ rdns_make_request_full (
 	req->arg = cbdata;
 	req->ref = 1;
 	req->reply = NULL;
+	req->network_plugin_data = NULL;
 	
 	va_start (args, queries);
 	for (i = 0; i < queries; i ++) {
@@ -1199,6 +1202,9 @@ rdns_resolver_destroy (struct rdns_resolver *resolver)
 	if (resolver->initialized) {
 		if (resolver->periodic != NULL) {
 			resolver->async->del_periodic (resolver->async->data, resolver->periodic);
+		}
+		if (resolver->network_plugin != NULL && resolver->network_plugin->dtor != NULL) {
+			resolver->network_plugin->dtor (resolver, resolver->network_plugin->data);
 		}
 		/* Stop IO watch on all IO channels */
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {

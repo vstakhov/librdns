@@ -132,7 +132,7 @@ typedef ssize_t (*rdns_network_send_callback) (struct rdns_request *req, void *p
 typedef ssize_t (*rdns_network_recv_callback) (struct rdns_io_channel *ioc, void *buf,
 		size_t len, void *plugin_data, struct rdns_request **req_out);
 typedef void (*rdns_network_finish_callback) (struct rdns_request *req, void *plugin_data);
-typedef void (*rdns_plugin_dtor_callback) (void *plugin_data);
+typedef void (*rdns_plugin_dtor_callback) (struct rdns_resolver *resolver, void *plugin_data);
 
 struct rdns_plugin {
 	enum rdns_plugin_type type;
@@ -143,7 +143,7 @@ struct rdns_plugin {
 			rdns_network_finish_callback finish_cb;
 		} network_plugin;
 	} cb;
-	rdns_plugin_dtor_callback *dtor;
+	rdns_plugin_dtor_callback dtor;
 	void *data;
 };
 
