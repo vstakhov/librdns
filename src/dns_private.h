@@ -245,36 +245,5 @@ static const char dns_types[][16] = {
 	[DNS_REQUEST_AAA] = "AAA request"
 };
 
-/**
- * Convert an UCS4 string to a puny-coded DNS label string suitable
- * when combined with delimiters and other labels for DNS lookup.
- *
- * @param in an UCS4 string to convert
- * @param in_len the length of in.
- * @param out the resulting puny-coded string. The string is not NULL
- * terminated.
- * @param out_len before processing out_len should be the length of
- * the out variable, after processing it will be the length of the out
- * string.
- *
- * @return returns 0 on success, an wind error code otherwise
- */
-bool rdns_punycode_label_toascii (const uint32_t *in, size_t in_len, char *out, size_t *out_len);
-/**
- * Convert an UTF-8 string to an UCS4 string.
- *
- * @param in an UTF-8 string to convert.
- * @param out the resulting UCS4 string
- * @param out_len before processing out_len should be the length of
- * the out variable, after processing it will be the length of the out
- * string.
- *
- * @return returns 0 on success, an -1 otherwise
- * @ingroup wind
- */
-
-int rdns_utf8_to_ucs4 (const char *in, size_t in_len, uint32_t **out, size_t *out_len);
-
-int rdns_make_client_socket (const char *credits, uint16_t port, int type);
 
 #endif /* DNS_PRIVATE_H_ */

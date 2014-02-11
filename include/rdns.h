@@ -217,12 +217,12 @@ struct rdns_request* rdns_make_request_full (
 /**
  * Get textual presentation of DNS error code
  */
-const char *dns_strerror (enum dns_rcode rcode);
+const char *rdns_strerror (enum dns_rcode rcode);
 
 /**
  * Get textual presentation of DNS request type
  */
-const char *dns_strtype (enum rdns_request_type type);
+const char *rdns_strtype (enum rdns_request_type type);
 
 /**
  * Increase refcount for a request

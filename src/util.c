@@ -33,7 +33,10 @@
 #include <netdb.h>
 #include <fcntl.h>
 
-int
+#include "ottery.h"
+#include "util.h"
+
+static int
 rdns_make_socket_nonblocking (int fd)
 {
 	int                            ofl;
@@ -96,7 +99,7 @@ out:
 	return (fd);
 }
 
-int
+static int
 rdns_make_unix_socket (const char *path, struct sockaddr_un *addr, int type)
 {
 	int                            fd = -1, s_error, r, optlen, serrno, on = 1;
@@ -219,4 +222,137 @@ rdns_make_client_socket (const char *credits, uint16_t port,
 
 	/* Not reached */
 	return -1;
+}
+
+const char *
+rdns_strerror (enum dns_rcode rcode)
+{
+	rcode &= 0xf;
+	static char numbuf[16];
+
+	if ('\0' == dns_rcodes[rcode][0]) {
+		snprintf (numbuf, sizeof (numbuf), "UNKNOWN: %d", (int)rcode);
+		return numbuf;
+	}
+	return dns_rcodes[rcode];
+}
+
+const char *
+rdns_strtype (enum rdns_request_type type)
+{
+	return dns_types[type];
+}
+
+uint16_t
+rdns_permutor_generate_id (void)
+{
+	uint16_t id;
+
+	id = ottery_rand_unsigned ();
+
+	return id;
+}
+
+
+static void
+rdns_reply_free (struct rdns_reply *rep)
+{
+	struct rdns_reply_entry *entry, *tmp;
+
+	LL_FOREACH_SAFE (rep->entries, entry, tmp) {
+		switch (entry->type) {
+		case DNS_T_PTR:
+			free (entry->content.ptr.name);
+			break;
+		case DNS_T_MX:
+			free (entry->content.mx.name);
+			break;
+		case DNS_T_TXT:
+		case DNS_T_SPF:
+			free (entry->content.txt.data);
+			break;
+		case DNS_T_SRV:
+			free (entry->content.srv.target);
+			break;
+		}
+		free (entry);
+	}
+	free (rep);
+}
+
+static void
+rdns_request_free (struct rdns_request *req)
+{
+	if (req != NULL) {
+		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
+			/* Remove from id hashes */
+			HASH_DEL (req->io->requests, req);
+			rdns_ioc_unref (req->io, req->async);
+		}
+		if (req->packet != NULL) {
+			free (req->packet);
+		}
+		if (req->reply != NULL) {
+			rdns_reply_free (req->reply);
+		}
+		if (req->state >= RDNS_REQUEST_SENT) {
+			/* Remove timer */
+			req->async->del_timer (req->async->data,
+					req->async_event);
+		}
+		else if (req->state == RDNS_REQUEST_REGISTERED) {
+			/* Remove retransmit event */
+			req->async->del_write (req->async->data,
+					req->async_event);
+		}
+		if (req->network_plugin_data != NULL) {
+			req->resolver->network_plugin->cb.network_plugin.finish_cb (
+					req, req->resolver->network_plugin->data);
+		}
+		free (req);
+	}
+}
+
+struct rdns_request*
+rdns_request_ref (struct rdns_request *req)
+{
+	req->ref ++;
+	return req;
+}
+
+void
+rdns_request_unref (struct rdns_request *req)
+{
+	if (--req->ref <= 0) {
+		rdns_request_free (req);
+	}
+}
+
+static void
+rdns_ioc_free (struct rdns_io_channel *ioc, struct rdns_async_context *async)
+{
+	struct rdns_request *req, *rtmp;
+
+	HASH_ITER (hh, ioc->requests, req, rtmp) {
+		HASH_DELETE (hh, ioc->requests, req);
+		rdns_request_unref (req);
+	}
+	async->del_read (async->data, ioc->async_io);
+	close (ioc->sock);
+	free (ioc);
+}
+
+struct rdns_io_channel *
+rdns_ioc_ref (struct rdns_io_channel *ioc)
+{
+	ioc->ref ++;
+	return ioc;
+}
+
+void
+rdns_ioc_unref (struct rdns_io_channel *ioc, struct rdns_async_context *async)
+{
+	if (--ioc->ref <= 0) {
+		rdns_ioc_free (ioc, async);
+	}
 }

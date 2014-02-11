@@ -50,10 +50,12 @@ IF(ENABLE_CURVE MATCHES "ON")
 ENDIF(ENABLE_CURVE MATCHES "ON")
 
 
-SET(LIBRDNSSRC			src/dns_util.c
-						src/dns.c
+SET(LIBRDNSSRC			src/util.c
 						src/punycode.c
-						src/dns_curve.c)
+						src/curve.c
+						src/parse.c
+						src/packet.c
+						src/resolver.c)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/src" 
 					"${CMAKE_SOURCE_DIR}/include" 
