@@ -308,8 +308,8 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		r = send (fd, req->packet, req->pos, 0);
 	}
 	else {
-		r = resolver->network_plugin->cb.network_plugin.send_cb (fd, req->packet,
-				req->pos);
+		r = resolver->network_plugin->cb.network_plugin.send_cb (req,
+				resolver->network_plugin->data);
 	}
 	if (r == -1) {
 		if (errno == EAGAIN || errno == EINTR) {
@@ -691,48 +691,48 @@ rdns_make_reply (struct rdns_request *req, enum dns_rcode rcode)
 	return rep;
 }
 
-static bool
-rdns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
-		struct rdns_request **req_out, struct rdns_reply **_rep)
+static struct rdns_request *
+rdns_find_dns_request (uint8_t *in, struct rdns_io_channel *ioc)
 {
 	struct dns_header *header = (struct dns_header *)in;
-	struct rdns_request      *req;
-	struct rdns_reply        *rep;
-	struct rdns_io_channel   *ioc;
-	struct rdns_reply_entry      *elt;
-	uint8_t                         *pos;
+	struct rdns_request *req;
 	int id;
-	int                            i, t;
 	
+	id = header->qid;
+	HASH_FIND_INT (ioc->requests, &id, req);
+	if (req == NULL) {
+		/* No such requests found */
+		DNS_DEBUG ("DNS request with id %d has not been found for IO channel", (int)id);
+	}
+
+	return req;
+}
+
+static bool
+rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
+		struct rdns_reply **_rep)
+{
+	struct dns_header *header = (struct dns_header *)in;
+	struct rdns_reply *rep;
+	struct rdns_io_channel *ioc;
+	struct rdns_reply_entry *elt;
+	uint8_t *pos;
+
+	int i, t;
+
 	/* First check header fields */
 	if (header->qr == 0) {
 		DNS_DEBUG ("got request while waiting for reply");
 		return false;
 	}
 
-	/* Find io channel */
-	HASH_FIND_INT (resolver->io_channels, &sock, ioc);
-	if (ioc == NULL) {
-		DNS_DEBUG ("io channel is not found for this resolver: %d", sock);
-		return false;
-	}
-
-	/* Now try to find corresponding request */
-	id = header->qid;
-	HASH_FIND_INT (ioc->requests, &id, req);
-	if (req == NULL) {
-		/* No such requests found */
-		DNS_DEBUG ("DNS request with id %d has not been found for IO channel", (int)id);
-		return false;
-	}
-	*req_out = req;
 	/* 
 	 * Now we have request and query data is now at the end of header, so compare
 	 * request QR section and reply QR section
 	 */
 	if ((pos = rdns_request_reply_cmp (req, in + sizeof (struct dns_header),
 			r - sizeof (struct dns_header))) == NULL) {
-		DNS_DEBUG ("DNS request with id %d is for different query, ignoring", (int)id);
+		DNS_DEBUG ("DNS request with id %d is for different query, ignoring", (int)req->id);
 		return false;
 	}
 	/*
@@ -770,23 +770,33 @@ rdns_parse_reply (int sock, uint8_t *in, int r, struct rdns_resolver *resolver,
 void
 rdns_process_read (int fd, void *arg)
 {
-	struct rdns_resolver     *resolver = arg;
-	struct rdns_request      *req = NULL;
-	int                            r;
-	struct rdns_reply        *rep;
-	uint8_t                          in[UDP_PACKET_SIZE];
+	struct rdns_io_channel *ioc = arg;
+	struct rdns_resolver *resolver;
+	struct rdns_request *req = NULL;
+	ssize_t r;
+	struct rdns_reply *rep;
+	uint8_t in[UDP_PACKET_SIZE];
 
-	/* This function is called each time when we have data on one of server's sockets */
+	resolver = ioc->resolver;
 	
 	/* First read packet from socket */
 	if (resolver->network_plugin == NULL) {
 		r = read (fd, in, sizeof (in));
+		if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
+			req = rdns_find_dns_request (in, ioc);
+		}
 	}
 	else {
-		r = resolver->network_plugin->cb.network_plugin.recv_cb (fd, in, sizeof (in));
+		r = resolver->network_plugin->cb.network_plugin.recv_cb (ioc, in,
+				sizeof (in), resolver->network_plugin->data, &req);
+		if (req == NULL &&
+				r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
+			req = rdns_find_dns_request (in, ioc);
+		}
 	}
-	if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
-		if (rdns_parse_reply (fd, in, r, resolver, &req, &rep)) {
+
+	if (req != NULL) {
+		if (rdns_parse_reply (in, r, req, &rep)) {
 			UPSTREAM_OK (req->io->srv);
 			rdns_request_ref (req);
 			req->func (rep, req->arg);
@@ -1105,7 +1115,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 				ioc->srv = serv;
 				ioc->resolver = resolver;
 				ioc->async_io = resolver->async->add_read (resolver->async->data,
-						ioc->sock, resolver);
+						ioc->sock, ioc);
 				ioc->ref = 1;
 				serv->cur_io_channel = ioc;
 				CDL_PREPEND (serv->io_channels, ioc);
@@ -1116,7 +1126,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 
 	if (resolver->async->add_periodic) {
 		resolver->periodic = resolver->async->add_periodic (resolver->async->data,
-				UPSTREAM_REVIVE_TIME, resolver);
+				UPSTREAM_REVIVE_TIME, rdns_process_periodic, resolver);
 	}
 
 	resolver->initialized = true;

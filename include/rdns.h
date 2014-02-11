@@ -34,6 +34,7 @@
 
 struct rdns_reply;
 struct rdns_request;
+struct rdns_io_channel;
 
 typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 
@@ -103,6 +104,8 @@ struct rdns_reply {
 	enum dns_rcode code;
 };
 
+typedef void (*rdns_periodic_callback)(void *user_data);
+
 struct rdns_async_context {
 	void *data;
 	void* (*add_read)(void *priv_data, int fd, void *user_data);
@@ -110,7 +113,8 @@ struct rdns_async_context {
 	void* (*add_write)(void *priv_data, int fd, void *user_data);
 	void (*del_write)(void *priv_data, void *ev_data);
 	void* (*add_timer)(void *priv_data, double after, void *user_data);
-	void* (*add_periodic)(void *priv_data, double after, void *user_data);
+	void* (*add_periodic)(void *priv_data, double after,
+			rdns_periodic_callback cb, void *user_data);
 	void (*repeat_timer)(void *priv_data, void *ev_data);
 	void (*del_timer)(void *priv_data, void *ev_data);
 	void (*cleanup)(void *priv_data);
@@ -123,8 +127,11 @@ enum rdns_plugin_type {
 	RDNS_PLUGIN_NETWORK = 0//!< use the specified plugin instead of send/recv functions
 };
 
-typedef ssize_t (*rdns_network_send_callback) (int fd, const void *buf, size_t len);
-typedef ssize_t (*rdns_network_recv_callback) (int fd, void *buf, size_t len);
+typedef ssize_t (*rdns_network_send_callback) (struct rdns_request *req, void *plugin_data);
+typedef ssize_t (*rdns_network_recv_callback) (struct rdns_io_channel *ioc, void *buf,
+		size_t len, void *plugin_data, struct rdns_request **req_out);
+typedef void (*rdns_network_finish_callback) (struct rdns_request *req, void *plugin_data);
+typedef void (*rdns_plugin_dtor_callback) (void *plugin_data);
 
 struct rdns_plugin {
 	enum rdns_plugin_type type;
@@ -132,8 +139,10 @@ struct rdns_plugin {
 		struct {
 			rdns_network_send_callback send_cb;
 			rdns_network_recv_callback recv_cb;
+			rdns_network_finish_callback finish_cb;
 		} network_plugin;
 	} cb;
+	rdns_plugin_dtor_callback *dtor;
 	void *data;
 };
 
@@ -233,7 +242,6 @@ void rdns_request_unref (struct rdns_request *req);
 
 void rdns_process_read (int fd, void *arg);
 void rdns_process_timer (void *arg);
-void rdns_process_periodic (void *arg);
 void rdns_process_retransmit (int fd, void *arg);
 
 #endif

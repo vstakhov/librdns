@@ -25,8 +25,6 @@
 #ifndef RDNS_CURVE_H_
 #define RDNS_CURVE_H_
 
-#define RDSN_CURVE_PUBKEY_LEN 32
-
 struct rdns_curve_ctx;
 
 /**
@@ -42,7 +40,7 @@ struct rdns_curve_ctx* rdns_curve_ctx_new (void);
  * @param pubkey pubkey bytes (must be `RDSN_CURVE_PUBKEY_LEN`)
  */
 void rdns_curve_ctx_add_key (struct rdns_curve_ctx *ctx,
-		const char *name, const char *pubkey);
+		const char *name, const unsigned char *pubkey);
 
 /**
  * Destroy curve context

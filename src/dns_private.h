@@ -96,6 +96,8 @@ struct rdns_request {
 
 	void *async_event;
 
+	void *plugin_data;
+
 	UT_hash_handle hh;
 };
 
