@@ -166,10 +166,11 @@ void rdns_resolver_async_bind (struct rdns_resolver *resolver,
  * @param resolver resolver object
  * @param name name of DNS server (should be ipv4 or ipv6 address)
  * @param priority priority (can be 0 for fair round-robin)
+ * @param io_cnt a number of sockets that are simultaneously opened to this server
  * @return true if a server has been added to resolver
  */
 bool rdns_resolver_add_server (struct rdns_resolver *resolver,
-		const char *name, int priority);
+		const char *name, int priority, unsigned int io_cnt);
 
 /**
  * Register new plugin for rdns resolver

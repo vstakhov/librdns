@@ -520,7 +520,7 @@ rdns_resolver_register_plugin (struct rdns_resolver *resolver,
 
 bool
 rdns_resolver_add_server (struct rdns_resolver *resolver,
-		const char *name, int priority)
+		const char *name, int priority, unsigned int io_cnt)
 {
 	struct rdns_server *serv;
 	union {
@@ -534,6 +534,10 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 		return false;
 	}
 
+	if (io_cnt == 0) {
+		return false;
+	}
+
 	serv = calloc (1, sizeof (struct rdns_server));
 	if (serv == NULL) {
 		return false;
@@ -544,8 +548,7 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 		return false;
 	}
 
-	/* XXX: make this configurable */
-	serv->io_cnt = 8;
+	serv->io_cnt = io_cnt;
 
 	UPSTREAM_ADD (resolver->servers, serv, priority);
 

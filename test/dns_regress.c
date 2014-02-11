@@ -71,13 +71,13 @@ main (int argc, char **argv)
 	resolver_ev = rdns_resolver_new ();
 	rdns_bind_libev (resolver_ev, loop);
 	/* Google and opendns */
-	rdns_resolver_add_server (resolver_ev, "8.8.8.8", 0);
-	rdns_resolver_add_server (resolver_ev, "208.67.222.222", 0);
+	rdns_resolver_add_server (resolver_ev, "8.8.8.8", 0, 8);
+	rdns_resolver_add_server (resolver_ev, "208.67.222.222", 0, 1);
 
 	resolver_event = rdns_resolver_new ();
 	rdns_bind_libevent (resolver_event, base);
-	rdns_resolver_add_server (resolver_event, "208.67.222.222", 0);
-	rdns_resolver_add_server (resolver_event, "8.8.8.8", 0);
+	rdns_resolver_add_server (resolver_event, "208.67.222.222", 0, 8);
+	rdns_resolver_add_server (resolver_event, "8.8.8.8", 0, 1);
 
 	rdns_resolver_init (resolver_ev);
 	rdns_resolver_init (resolver_event);
