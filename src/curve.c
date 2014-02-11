@@ -36,13 +36,10 @@ ssize_t rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len,
 		void *plugin_data, struct rdns_request **req_out);
 void rdns_curve_finish_request (struct rdns_request *req, void *plugin_data);
 void rdns_curve_dtor (struct rdns_resolver *resolver, void *plugin_data);
-#endif
 
 struct rdns_curve_entry {
 	char *name;
-#ifdef HAVE_SODIUM
 	unsigned char pk[crypto_box_PUBLICKEYBYTES];
-#endif
 	UT_hash_handle hh;
 };
 
@@ -53,11 +50,9 @@ struct rdns_curve_nm_entry {
 };
 
 struct rdns_curve_client_key {
-#ifdef HAVE_SODIUM
 	unsigned char pk[crypto_box_PUBLICKEYBYTES];
 	unsigned char sk[crypto_box_SECRETKEYBYTES];
 	struct rdns_curve_nm_entry *nms;
-#endif
 	uint64_t counter;
 	unsigned int uses;
 	unsigned int ref;
@@ -68,9 +63,7 @@ struct rdns_curve_request {
 	struct rdns_curve_client_key *key;
 	struct rdns_curve_entry *entry;
 	struct rdns_curve_nm_entry *nm;
-#ifdef HAVE_SODIUM
 	unsigned char nonce[crypto_box_NONCEBYTES];
-#endif
 	UT_hash_handle hh;
 };
 
@@ -90,7 +83,6 @@ rdns_curve_client_key_new (struct rdns_curve_ctx *ctx)
 	struct rdns_curve_entry *entry, *tmp;
 
 	new = calloc (1, sizeof (struct rdns_curve_client_key));
-#ifdef HAVE_SODIUM
 	crypto_box_keypair (new->pk, new->sk);
 
 	HASH_ITER (hh, ctx->entries, entry, tmp) {
@@ -101,7 +93,6 @@ rdns_curve_client_key_new (struct rdns_curve_ctx *ctx)
 	}
 
 	new->counter = ottery_rand_uint64 ();
-#endif
 
 	return new;
 }
@@ -194,7 +185,6 @@ void
 rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		struct rdns_curve_ctx *ctx)
 {
-#ifdef HAVE_SODIUM
 	struct rdns_plugin *plugin;
 
 	if (!resolver->async_binded) {
@@ -218,10 +208,8 @@ rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		}
 		rdns_resolver_register_plugin (resolver, plugin);
 	}
-#endif
 }
 
-#ifdef HAVE_SODIUM
 ssize_t
 rdns_curve_send (struct rdns_request *req, void *plugin_data)
 {
@@ -366,4 +354,25 @@ rdns_curve_dtor (struct rdns_resolver *resolver, void *plugin_data)
 	rdns_curve_client_key_unref (ctx->cur_key);
 }
 
+#else
+
+/* Fake functions */
+struct rdns_curve_ctx* rdns_curve_ctx_new (double rekey_interval)
+{
+	return NULL;
+}
+void rdns_curve_ctx_add_key (struct rdns_curve_ctx *ctx,
+		const char *name, const unsigned char *pubkey)
+{
+
+}
+void rdns_curve_ctx_destroy (struct rdns_curve_ctx *ctx)
+{
+
+}
+void rdns_curve_register_plugin (struct rdns_resolver *resolver,
+		struct rdns_curve_ctx *ctx)
+{
+
+}
 #endif
