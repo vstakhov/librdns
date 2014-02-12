@@ -20,43 +20,52 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef UTIL_H_
-#define UTIL_H_
-
-#include "dns_private.h"
+#ifndef REF_H_
+#define REF_H_
 
 /**
- * Make a universal socket
- * @param credits host, ip or path to unix socket
- * @param port port (used for network sockets)
- * @param type of socket (SOCK_STREAM or SOCK_DGRAM)
+ * @file ref.h
+ * A set of macros to handle refcounts
  */
-int
-rdns_make_client_socket (const char *credits, uint16_t port,
-		int type);
 
-/**
- * Generate new random DNS id
- * @return dns id
- */
-uint16_t rdns_permutor_generate_id (void);
+typedef void (*ref_dtor_cb_t)(void *data);
 
+typedef struct ref_entry_s {
+	unsigned int refcount;
+	ref_dtor_cb_t dtor;
+} ref_entry_t;
 
-/**
- * Free IO channel
- */
-void rdns_ioc_free (struct rdns_io_channel *ioc);
+#define REF_INIT(obj, dtor_cb) do {								\
+	(obj)->ref.refcount = 0;										\
+	(obj)->ref.dtor = (ref_dtor_cb_t)(dtor_cb);						\
+} while (0)
 
-/**
- * Free request
- * @param req
- */
-void rdns_request_free (struct rdns_request *req);
+#define REF_INIT_RETAIN(obj, dtor_cb) do {							\
+	(obj)->ref.refcount = 1;										\
+	(obj)->ref.dtor = (ref_dtor_cb_t)(dtor_cb);						\
+} while (0)
 
-/**
- * Free reply
- * @param rep
- */
-void rdns_reply_free (struct rdns_reply *rep);
+#ifdef HAVE_ATOMIC
+#define REF_RETAIN(obj) do {										\
+    __sync_add_and_fetch (&(obj)->ref.refcount, 1);					\
+} while (0)
 
-#endif /* UTIL_H_ */
+#define REF_RELEASE(obj) do {										\
+	unsigned int rc = __sync_sub_and_fetch (&(obj)->ref.refcount, 1) \
+	if (rc == 0 && (obj)->ref.dtor) {								\
+		(obj)->ref.dtor (obj);										\
+	}																\
+} while (0)
+#else
+#define REF_RETAIN(obj) do {										\
+	(obj)->ref.refcount ++;											\
+} while (0)
+
+#define REF_RELEASE(obj) do {										\
+	if (--(obj)->ref.refcount == 0 && (obj)->ref.dtor) {			\
+		(obj)->ref.dtor (obj);										\
+	}																\
+} while (0)
+#endif
+
+#endif /* REF_H_ */

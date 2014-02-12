@@ -268,9 +268,9 @@ rdns_process_read (int fd, void *arg)
 	if (req != NULL) {
 		if (rdns_parse_reply (in, r, req, &rep)) {
 			UPSTREAM_OK (req->io->srv);
-			rdns_request_ref (req);
+			REF_RETAIN (req);
 			req->func (rep, req->arg);
-			rdns_request_unref (req);
+			REF_RELEASE (req);
 		}
 	}
 }
@@ -289,9 +289,9 @@ rdns_process_timer (void *arg)
 	if (req->retransmits == 0) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_TIMEOUT);
-		rdns_request_ref (req);
+		REF_RETAIN (req);
 		req->func (rep, req->arg);
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 
 		return;
 	}
@@ -308,9 +308,9 @@ rdns_process_timer (void *arg)
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_NETERR);
-		rdns_request_ref (req);
+		REF_RETAIN (req);
 		req->func (rep, req->arg);
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 	}
 	else {
 		req->async->repeat_timer (req->async->data, req->async_event);
@@ -349,9 +349,9 @@ rdns_process_retransmit (int fd, void *arg)
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_NETERR);
-		rdns_request_ref (req);
+		REF_RETAIN (req);
 		req->func (rep, req->arg);
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 	}
 	else {
 		req->async_event = req->async->add_timer (req->async->data,
@@ -391,9 +391,9 @@ rdns_make_request_full (
 	req->resolver = resolver;
 	req->func = cb;
 	req->arg = cbdata;
-	req->ref = 1;
 	req->reply = NULL;
 	req->network_plugin_data = NULL;
+	REF_INIT_RETAIN (req, rdns_request_free);
 	
 	va_start (args, queries);
 	for (i = 0; i < queries; i ++) {
@@ -437,7 +437,7 @@ rdns_make_request_full (
 
 	if (serv == NULL) {
 		DNS_DEBUG ("cannot find suitable server for request");
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 		return NULL;
 	}
 	
@@ -446,7 +446,7 @@ rdns_make_request_full (
 	req->io = serv->cur_io_channel;
 	if (req->io == NULL) {
 		DNS_DEBUG ("cannot find suitable io channel for the server %s", serv->name);
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 		return NULL;
 	}
 	serv->cur_io_channel = serv->cur_io_channel->next;
@@ -455,11 +455,12 @@ rdns_make_request_full (
 	r = rdns_send_request (req, req->io->sock, true);
 
 	if (r == -1) {
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 		return NULL;
 	}
 
-	rdns_ioc_ref (req->io);
+	REF_RETAIN (req->io);
+	REF_RETAIN (req->resolver);
 
 	return req;
 }
@@ -488,10 +489,10 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 				ioc->resolver = resolver;
 				ioc->async_io = resolver->async->add_read (resolver->async->data,
 						ioc->sock, ioc);
-				ioc->ref = 1;
 				serv->cur_io_channel = ioc;
 				CDL_PREPEND (serv->io_channels, ioc);
 				HASH_ADD_INT (resolver->io_channels, sock, ioc);
+				REF_INIT_RETAIN (ioc, rdns_ioc_free);
 			}
 		}
 	}
@@ -560,18 +561,8 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 	return true;
 }
 
-struct rdns_resolver *
-rdns_resolver_new (void)
-{
-	struct rdns_resolver     *new;
-
-	new = calloc (1, sizeof (struct rdns_resolver));
-
-	return new;
-}
-
-void
-rdns_resolver_destroy (struct rdns_resolver *resolver)
+static void
+rdns_resolver_free (struct rdns_resolver *resolver)
 {
 	struct rdns_server *serv, *stmp;
 	struct rdns_io_channel *ioc, *itmp1, *itmp2;
@@ -587,14 +578,28 @@ rdns_resolver_destroy (struct rdns_resolver *resolver)
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {
 			CDL_FOREACH_SAFE (serv->io_channels, ioc, itmp1, itmp2) {
 				HASH_DELETE (hh, resolver->io_channels, ioc);
-				rdns_ioc_unref (ioc, resolver->async);
+				REF_RELEASE (ioc);
 			}
 			UPSTREAM_DEL (resolver->servers, serv);
 			free (serv->name);
 			free (serv);
 		}
 	}
+	free (resolver->async);
 	free (resolver);
+}
+
+
+struct rdns_resolver *
+rdns_resolver_new (void)
+{
+	struct rdns_resolver     *new;
+
+	new = calloc (1, sizeof (struct rdns_resolver));
+
+	REF_INIT_RETAIN (new, rdns_resolver_free);
+
+	return new;
 }
 
 void

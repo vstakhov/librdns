@@ -257,7 +257,7 @@ rdns_permutor_generate_id (void)
 }
 
 
-static void
+void
 rdns_reply_free (struct rdns_reply *rep)
 {
 	struct rdns_reply_entry *entry, *tmp;
@@ -283,15 +283,10 @@ rdns_reply_free (struct rdns_reply *rep)
 	free (rep);
 }
 
-static void
+void
 rdns_request_free (struct rdns_request *req)
 {
 	if (req != NULL) {
-		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
-			/* Remove from id hashes */
-			HASH_DEL (req->io->requests, req);
-			rdns_ioc_unref (req->io, req->async);
-		}
 		if (req->packet != NULL) {
 			free (req->packet);
 		}
@@ -312,50 +307,47 @@ rdns_request_free (struct rdns_request *req)
 			req->resolver->network_plugin->cb.network_plugin.finish_cb (
 					req, req->resolver->network_plugin->data);
 		}
+		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
+			/* Remove from id hashes */
+			HASH_DEL (req->io->requests, req);
+			REF_RELEASE (req->io);
+			REF_RELEASE (req->resolver);
+		}
+
 		free (req);
 	}
 }
 
-struct rdns_request*
-rdns_request_ref (struct rdns_request *req)
-{
-	req->ref ++;
-	return req;
-}
-
 void
-rdns_request_unref (struct rdns_request *req)
-{
-	if (--req->ref <= 0) {
-		rdns_request_free (req);
-	}
-}
-
-static void
-rdns_ioc_free (struct rdns_io_channel *ioc, struct rdns_async_context *async)
+rdns_ioc_free (struct rdns_io_channel *ioc)
 {
 	struct rdns_request *req, *rtmp;
 
 	HASH_ITER (hh, ioc->requests, req, rtmp) {
 		HASH_DELETE (hh, ioc->requests, req);
-		rdns_request_unref (req);
+		REF_RELEASE (req);
 	}
-	async->del_read (async->data, ioc->async_io);
+	ioc->resolver->async->del_read (ioc->resolver->async->data,
+			ioc->async_io);
 	close (ioc->sock);
 	free (ioc);
 }
 
-struct rdns_io_channel *
-rdns_ioc_ref (struct rdns_io_channel *ioc)
+void
+rdns_resolver_release (struct rdns_resolver *resolver)
 {
-	ioc->ref ++;
-	return ioc;
+	REF_RELEASE (resolver);
+}
+
+struct rdns_request*
+rdns_request_retain (struct rdns_request *req)
+{
+	REF_RETAIN (req);
+	return req;
 }
 
 void
-rdns_ioc_unref (struct rdns_io_channel *ioc, struct rdns_async_context *async)
+rdns_request_release (struct rdns_request *req)
 {
-	if (--ioc->ref <= 0) {
-		rdns_ioc_free (ioc, async);
-	}
+	REF_RELEASE (req);
 }

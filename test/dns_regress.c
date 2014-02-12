@@ -32,10 +32,10 @@ static void
 rdns_regress_callback (struct rdns_reply *reply, void *arg)
 {
 	printf ("got result for host: %s\n", (const char *)arg);
-	rdns_request_unref (reply->request);
+	rdns_request_release (reply->request);
 
 	if (--remain_tests == 0) {
-		rdns_resolver_destroy (reply->resolver);
+		rdns_resolver_release (reply->resolver);
 	}
 }
 
@@ -84,10 +84,11 @@ main (int argc, char **argv)
 
 	rdns_test_a (resolver_ev);
 	ev_loop (loop, 0);
+	ev_loop_destroy (loop);
 
 	rdns_test_a (resolver_event);
 	event_base_loop (base, 0);
-
+	event_base_free (base);
 
 	return 0;
 }

@@ -190,10 +190,10 @@ void rdns_resolver_register_plugin (struct rdns_resolver *resolver,
 bool rdns_resolver_init (struct rdns_resolver *resolver);
 
 /**
- * Destroy resolver and free all associated structures
+ * Decrease refcount for a resolver and free it if refcount is 0
  * @param resolver
  */
-void rdns_resolver_destroy (struct rdns_resolver *resolver);
+void rdns_resolver_release (struct rdns_resolver *resolver);
 
 /**
  * Make a DNS request
@@ -232,13 +232,13 @@ const char *rdns_strtype (enum rdns_request_type type);
  * @param req
  * @return
  */
-struct rdns_request* rdns_request_ref (struct rdns_request *req);
+struct rdns_request* rdns_request_retain (struct rdns_request *req);
 
 /**
  * Decrease refcount for a request and free it if refcount is 0
  * @param req
  */
-void rdns_request_unref (struct rdns_request *req);
+void rdns_request_release (struct rdns_request *req);
 
 /*
  * Private functions used by async libraries as callbacks

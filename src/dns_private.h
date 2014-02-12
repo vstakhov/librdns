@@ -28,6 +28,7 @@
 #include "utlist.h"
 #include "rdns.h"
 #include "upstream.h"
+#include "ref.h"
 
 #define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
 
@@ -78,7 +79,6 @@ struct rdns_request {
 	int id;
 	const char *requested_name;
 
-	int ref;
 	enum {
 		RDNS_REQUEST_NEW = 0,
 		RDNS_REQUEST_REGISTERED = 1,
@@ -98,6 +98,7 @@ struct rdns_request {
 	void *network_plugin_data;
 
 	UT_hash_handle hh;
+	ref_entry_t ref;
 };
 
 /**
@@ -110,9 +111,9 @@ struct rdns_io_channel {
 	void *async_io; /** async opaque ptr */
 	struct rdns_request *requests; /**< requests in flight                                         */
 	struct rdns_io_channel *prev, *next;
-	unsigned int ref;
 	bool want_reinit;
 	UT_hash_handle hh;
+	ref_entry_t ref;
 };
 
 
@@ -126,6 +127,7 @@ struct rdns_resolver {
 
 	bool async_binded;
 	bool initialized;
+	ref_entry_t ref;
 };
 
 struct dns_header;
