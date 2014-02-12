@@ -264,7 +264,7 @@ rdns_utf8_to_ucs4 (const char *in, size_t in_len, uint32_t **out, size_t *out_le
 	int ret;
 	uint32_t *res;
 
-	p = in;
+	p = (const unsigned char *)in;
 	while (remain > 0) {
 		uint32_t u;
 
@@ -280,7 +280,7 @@ rdns_utf8_to_ucs4 (const char *in, size_t in_len, uint32_t **out, size_t *out_le
 		return -1;
 	}
 
-	p = in;
+	p = (const unsigned char *)in;
 	remain = in_len;
 	olen = 0;
 	while (remain > 0) {

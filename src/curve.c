@@ -23,6 +23,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+
 #include "rdns.h"
 #include "dns_private.h"
 #include "rdns_curve.h"

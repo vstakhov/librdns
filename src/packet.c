@@ -25,6 +25,7 @@
 #include "dns_private.h"
 #include "punycode.h"
 #include "packet.h"
+#include "util.h"
 
 void
 rdns_allocate_packet (struct rdns_request* req, unsigned int namelen)

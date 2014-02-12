@@ -104,8 +104,9 @@ out:
 static int
 rdns_make_unix_socket (const char *path, struct sockaddr_un *addr, int type)
 {
-	int                            fd = -1, s_error, r, optlen, serrno, on = 1;
-	struct stat                     st;
+	int fd = -1, s_error, r, serrno, on = 1;
+	struct stat st;
+	socklen_t optlen;
 
 	if (path == NULL) {
 		return -1;
