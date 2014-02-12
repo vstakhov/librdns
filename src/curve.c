@@ -324,8 +324,8 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 		iov[1].iov_len = sizeof (ctx->cur_key->pk);
 		iov[2].iov_base = creq->nonce;
 		iov[2].iov_len = 12;
-		iov[3].iov_base = m;
-		iov[3].iov_len = boxed_len;
+		iov[3].iov_base = m + crypto_box_BOXZEROBYTES;
+		iov[3].iov_len = boxed_len - crypto_box_BOXZEROBYTES;
 
 		ret = writev (req->io->sock, iov, sizeof (iov) / sizeof (iov[0]));
 		sodium_memzero (m, boxed_len);
@@ -367,13 +367,18 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 		}
 		memcpy (enonce, p, crypto_box_NONCEBYTES);
 		p += crypto_box_NONCEBYTES;
-		boxlen = ret - crypto_box_NONCEBYTES - sizeof (rmagic) + 1;
+		boxlen = ret - crypto_box_NONCEBYTES +
+				crypto_box_BOXZEROBYTES -
+				sizeof (rmagic) + 1;
 		if (boxlen < 0) {
 			return ret;
 		}
 		box = malloc (boxlen);
+		sodium_memzero (box, crypto_box_BOXZEROBYTES);
+		memcpy (box + crypto_box_BOXZEROBYTES, p,
+				boxlen - crypto_box_BOXZEROBYTES);
 
-		if (crypto_box_open_afternm (box, p, boxlen, enonce, creq->nm->k) != -1) {
+		if (crypto_box_open_afternm (box, box, boxlen, enonce, creq->nm->k) != -1) {
 			memcpy (buf, box + crypto_box_ZEROBYTES,
 					boxlen - crypto_box_ZEROBYTES);
 			ret = boxlen - crypto_box_ZEROBYTES;
