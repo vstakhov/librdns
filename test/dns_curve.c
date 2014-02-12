@@ -67,13 +67,14 @@ main (int argc, char **argv)
 	struct ev_loop *loop;
 	unsigned char *pk;
 	struct rdns_curve_ctx *curve;
+	unsigned int port;
 
-	if (argc != 3) {
-		fprintf (stderr, "Usage: dns_curve <server_ip> <server_pubkey>\n");
+	if (argc != 4) {
+		fprintf (stderr, "Usage: dns_curve <server_ip> <server_port> <server_pubkey>\n");
 		exit (EXIT_FAILURE);
 	}
 
-	pk = rdns_curve_key_from_hex (argv[2]);
+	pk = rdns_curve_key_from_hex (argv[3]);
 	if (pk == NULL) {
 		fprintf (stderr, "Invalid public key: %s\n", argv[2]);
 		exit (EXIT_FAILURE);
@@ -93,7 +94,7 @@ main (int argc, char **argv)
 	rdns_curve_ctx_add_key (curve, argv[1], pk);
 	rdns_curve_register_plugin (resolver_ev, curve);
 
-	rdns_resolver_add_server (resolver_ev, argv[1], 0, 8);
+	rdns_resolver_add_server (resolver_ev, argv[1], strtoul (argv[2], NULL, 10), 0, 8);
 
 	rdns_resolver_init (resolver_ev);
 

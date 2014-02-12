@@ -385,7 +385,7 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 			*req_out = creq->req;
 		}
 		else {
-			DNS_DEBUG ("rdns_curve_recv: unable open cryptobox of size %d", boxlen);
+			DNS_DEBUG ("rdns_curve_recv: unable open cryptobox of size %d", (int)boxlen);
 		}
 		free (box);
 	}

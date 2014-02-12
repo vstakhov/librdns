@@ -479,7 +479,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 	UPSTREAM_FOREACH (resolver->servers, serv) {
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
-			ioc->sock = rdns_make_client_socket (serv->name, dns_port, SOCK_DGRAM);
+			ioc->sock = rdns_make_client_socket (serv->name, serv->port, SOCK_DGRAM);
 			if (ioc->sock == -1) {
 				return false;
 			}
@@ -520,7 +520,8 @@ rdns_resolver_register_plugin (struct rdns_resolver *resolver,
 
 bool
 rdns_resolver_add_server (struct rdns_resolver *resolver,
-		const char *name, int priority, unsigned int io_cnt)
+		const char *name, unsigned int port,
+		int priority, unsigned int io_cnt)
 {
 	struct rdns_server *serv;
 	union {
@@ -537,6 +538,9 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 	if (io_cnt == 0) {
 		return false;
 	}
+	if (port == 0 || port > UINT16_MAX) {
+		return false;
+	}
 
 	serv = calloc (1, sizeof (struct rdns_server));
 	if (serv == NULL) {
@@ -549,6 +553,7 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 	}
 
 	serv->io_cnt = io_cnt;
+	serv->port = port;
 
 	UPSTREAM_ADD (resolver->servers, serv, priority);
 

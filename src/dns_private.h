@@ -56,6 +56,8 @@ static const int dns_port = 53;
 struct rdns_server {
 	char *name; /**< name of DNS server                                         */
 
+	unsigned int port;
+
 	struct rdns_io_channel *io_channels;
 	struct rdns_io_channel *cur_io_channel;
 

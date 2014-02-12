@@ -23,9 +23,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Rdns_H
-#define Rdns_H
+#ifndef RDNS_H
+#define RDNS_H
 
+#include <sys/types.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -170,7 +171,8 @@ void rdns_resolver_async_bind (struct rdns_resolver *resolver,
  * @return true if a server has been added to resolver
  */
 bool rdns_resolver_add_server (struct rdns_resolver *resolver,
-		const char *name, int priority, unsigned int io_cnt);
+		const char *name, unsigned int port,
+		int priority, unsigned int io_cnt);
 
 /**
  * Register new plugin for rdns resolver
