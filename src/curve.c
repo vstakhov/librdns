@@ -89,6 +89,7 @@ rdns_curve_client_key_new (struct rdns_curve_ctx *ctx)
 		nm = calloc (1, sizeof (struct rdns_curve_nm_entry));
 		nm->entry = entry;
 		crypto_box_beforenm (nm->k, entry->pk, new->sk);
+
 		DL_APPEND (new->nms, nm);
 	}
 
@@ -125,8 +126,10 @@ rdns_curve_client_key_unref (struct rdns_curve_client_key *key)
 
 	if (--key->ref == 0) {
 		DL_FOREACH_SAFE (key->nms, nm, tmp) {
+			sodium_memzero (nm->k, sizeof (nm->k));
 			free (nm);
 		}
+		sodium_memzero (key->sk, sizeof (key->sk));
 		free (key);
 	}
 }
@@ -162,6 +165,53 @@ rdns_curve_ctx_add_key (struct rdns_curve_ctx *ctx,
 			HASH_ADD_KEYPTR (hh, ctx->entries, entry->name, strlen (entry->name), entry);
 		}
 	}
+}
+
+#define rdns_curve_write_hex(in, out, offset, base) do {					\
+    *(out) |= ((in)[(offset)] - (base)) << ((1 - offset) * 4);				\
+} while (0)
+
+static bool
+rdns_curve_hex_to_byte (const char *in, unsigned char *out)
+{
+	int i;
+
+	for (i = 0; i <= 1; i ++) {
+		if (in[i] >= '0' && in[i] <= '9') {
+			rdns_curve_write_hex (in, out, i, '0');
+		}
+		else if (in[i] >= 'a' && in[i] <= 'f') {
+			rdns_curve_write_hex (in, out, i, 'a' - 10);
+		}
+		else if (in[i] >= 'A' && in[i] <= 'F') {
+			rdns_curve_write_hex (in, out, i, 'A' - 10);
+		}
+		else {
+			return false;
+		}
+	}
+	return true;
+}
+
+#undef rdns_curve_write_hex
+
+unsigned char *
+rdns_curve_key_from_hex (const char *hex)
+{
+	int len = strlen (hex), i;
+	unsigned char *res = NULL;
+
+	if (len == crypto_box_PUBLICKEYBYTES * 2) {
+		res = calloc (1, crypto_box_PUBLICKEYBYTES);
+		for (i = 0; i < crypto_box_PUBLICKEYBYTES; i ++) {
+			if (!rdns_curve_hex_to_byte (&hex[i * 2], &res[i])) {
+				free (res);
+				return NULL;
+			}
+		}
+	}
+
+	return res;
 }
 
 void rdns_curve_ctx_destroy (struct rdns_curve_ctx *ctx)
@@ -221,14 +271,14 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 	struct rdns_curve_ctx *ctx = (struct rdns_curve_ctx *)plugin_data;
 	struct rdns_curve_entry *entry;
 	struct iovec iov[4];
-	unsigned char *m, *c;
+	unsigned char *m;
 	static const char qmagic[] = "Q6fnvWj8";
 	struct rdns_curve_request *creq;
 	struct rdns_curve_nm_entry *nm;
-	ssize_t ret;
+	ssize_t ret, boxed_len;
 
 	/* Check for key */
-	HASH_FIND_PTR (ctx->entries, req->io->srv->name, entry);
+	HASH_FIND_STR (ctx->entries, req->io->srv->name, entry);
 	if (entry != NULL) {
 		nm = rdns_curve_find_nm (ctx->cur_key, entry);
 		creq = malloc (sizeof (struct rdns_curve_request));
@@ -236,7 +286,8 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 			return -1;
 		}
 
-		m = malloc (req->pos + crypto_box_ZEROBYTES);
+		boxed_len = req->pos + crypto_box_ZEROBYTES;
+		m = malloc (boxed_len);
 		if (m == NULL) {
 			return -1;
 		}
@@ -244,22 +295,17 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 		/* Ottery is faster than sodium native PRG that uses /dev/random only */
 		memcpy (creq->nonce, &ctx->cur_key->counter, sizeof (uint64_t));
 		ottery_rand_bytes (creq->nonce + sizeof (uint64_t), 12 - sizeof (uint64_t));
-
 		sodium_memzero (creq->nonce + 12, crypto_box_NONCEBYTES - 12);
+
 		sodium_memzero (m, crypto_box_ZEROBYTES);
 		memcpy (m + crypto_box_ZEROBYTES, req->packet, req->pos);
-		c = malloc (req->pos + crypto_box_ZEROBYTES);
-		if (c == NULL) {
-			free (m);
-			return -1;
-		}
-		if (crypto_box_afternm (c, m, req->pos + crypto_box_ZEROBYTES,
+
+		if (crypto_box_afternm (m, m, boxed_len,
 				creq->nonce, nm->k) == -1) {
-			free (c);
+			sodium_memzero (m, boxed_len);
 			free (m);
 			return -1;
 		}
-		free (m);
 
 		creq->key = rdns_curve_client_key_ref (ctx->cur_key);
 		creq->entry = entry;
@@ -267,21 +313,23 @@ rdns_curve_send (struct rdns_request *req, void *plugin_data)
 		creq->nm = nm;
 		HASH_ADD_KEYPTR (hh, ctx->requests, creq->nonce, 12, creq);
 		req->network_plugin_data = creq;
+
 		ctx->cur_key->counter ++;
 		ctx->cur_key->uses ++;
 
 		/* Now form a dnscurve packet */
 		iov[0].iov_base = (void *)qmagic;
 		iov[0].iov_len = sizeof (qmagic) - 1;
-		iov[1].iov_base = entry->pk;
-		iov[1].iov_len = sizeof (entry->pk);
+		iov[1].iov_base = ctx->cur_key->pk;
+		iov[1].iov_len = sizeof (ctx->cur_key->pk);
 		iov[2].iov_base = creq->nonce;
 		iov[2].iov_len = 12;
-		iov[3].iov_base = c;
-		iov[3].iov_len = req->pos + crypto_box_ZEROBYTES;
+		iov[3].iov_base = m;
+		iov[3].iov_len = boxed_len;
 
 		ret = writev (req->io->sock, iov, sizeof (iov) / sizeof (iov[0]));
-		free (c);
+		sodium_memzero (m, boxed_len);
+		free (m);
 	}
 	else {
 		ret = write (req->io->sock, req->packet, req->pos);
@@ -309,25 +357,30 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 		return ret;
 	}
 
-	if (memcmp (buf, rmagic, sizeof (rmagic)) == 0) {
+	if (memcmp (buf, rmagic, sizeof (rmagic) - 1) == 0) {
 		/* Likely DNSCurve packet */
 		p = ((unsigned char *)buf) + 8;
 		HASH_FIND (hh, ctx->requests, p, 12, creq);
 		if (creq == NULL) {
+			DNS_DEBUG ("rdns_curve_recv: unable to find nonce");
 			return ret;
 		}
 		memcpy (enonce, p, crypto_box_NONCEBYTES);
 		p += crypto_box_NONCEBYTES;
-		boxlen = ret - crypto_box_NONCEBYTES - sizeof (rmagic);
+		boxlen = ret - crypto_box_NONCEBYTES - sizeof (rmagic) + 1;
 		if (boxlen < 0) {
 			return ret;
 		}
 		box = malloc (boxlen);
 
 		if (crypto_box_open_afternm (box, p, boxlen, enonce, creq->nm->k) != -1) {
-			memcpy (buf, box, boxlen - crypto_box_ZEROBYTES);
+			memcpy (buf, box + crypto_box_ZEROBYTES,
+					boxlen - crypto_box_ZEROBYTES);
 			ret = boxlen - crypto_box_ZEROBYTES;
 			*req_out = creq->req;
+		}
+		else {
+			DNS_DEBUG ("rdns_curve_recv: unable open cryptobox of size %d", boxlen);
 		}
 		free (box);
 	}
@@ -379,5 +432,11 @@ void rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		struct rdns_curve_ctx *ctx)
 {
 
+}
+
+unsigned char *
+rdns_curve_key_from_hex (const char *hex)
+{
+	return NULL;
 }
 #endif

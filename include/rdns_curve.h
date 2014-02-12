@@ -57,4 +57,11 @@ void rdns_curve_ctx_destroy (struct rdns_curve_ctx *ctx);
 void rdns_curve_register_plugin (struct rdns_resolver *resolver,
 		struct rdns_curve_ctx *ctx);
 
+/**
+ * Create DNSCurve key from the base16 encoded string
+ * @param hex input hex (must be NULL terminated)
+ * @return a key or NULL (not NULL terminated)
+ */
+unsigned char * rdns_curve_key_from_hex (const char *hex);
+
 #endif /* RDNS_CURVE_H_ */
