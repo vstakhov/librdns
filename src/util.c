@@ -303,10 +303,12 @@ rdns_request_free (struct rdns_request *req)
 			req->async->del_write (req->async->data,
 					req->async_event);
 		}
-		if (req->network_plugin_data != NULL) {
-			req->resolver->network_plugin->cb.network_plugin.finish_cb (
-					req, req->resolver->network_plugin->data);
+#ifdef HAVE_SODIUM
+		if (req->curve_plugin_data != NULL) {
+			req->resolver->curve_plugin->cb.curve_plugin.finish_cb (
+					req, req->resolver->curve_plugin->data);
 		}
+#endif
 		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
 			/* Remove from id hashes */
 			HASH_DEL (req->io->requests, req);

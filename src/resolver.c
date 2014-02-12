@@ -105,12 +105,12 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 		}
 	}
 
-	if (resolver->network_plugin == NULL) {
+	if (resolver->curve_plugin == NULL) {
 		r = send (fd, req->packet, req->pos, 0);
 	}
 	else {
-		r = resolver->network_plugin->cb.network_plugin.send_cb (req,
-				resolver->network_plugin->data);
+		r = resolver->curve_plugin->cb.curve_plugin.send_cb (req,
+				resolver->curve_plugin->data);
 	}
 	if (r == -1) {
 		if (errno == EAGAIN || errno == EINTR) {
@@ -250,15 +250,15 @@ rdns_process_read (int fd, void *arg)
 	resolver = ioc->resolver;
 	
 	/* First read packet from socket */
-	if (resolver->network_plugin == NULL) {
+	if (resolver->curve_plugin == NULL) {
 		r = read (fd, in, sizeof (in));
 		if (r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
 			req = rdns_find_dns_request (in, ioc);
 		}
 	}
 	else {
-		r = resolver->network_plugin->cb.network_plugin.recv_cb (ioc, in,
-				sizeof (in), resolver->network_plugin->data, &req);
+		r = resolver->curve_plugin->cb.curve_plugin.recv_cb (ioc, in,
+				sizeof (in), resolver->curve_plugin->data, &req);
 		if (req == NULL &&
 				r > (int)(sizeof (struct dns_header) + sizeof (struct dns_query))) {
 			req = rdns_find_dns_request (in, ioc);
@@ -392,7 +392,9 @@ rdns_make_request_full (
 	req->func = cb;
 	req->arg = cbdata;
 	req->reply = NULL;
-	req->network_plugin_data = NULL;
+#ifdef HAVE_SODIUM
+	req->curve_plugin_data = NULL;
+#endif
 	REF_INIT_RETAIN (req, rdns_request_free);
 	
 	va_start (args, queries);
@@ -513,8 +515,8 @@ rdns_resolver_register_plugin (struct rdns_resolver *resolver,
 {
 	if (resolver != NULL && plugin != NULL) {
 		/* XXX: support only network plugin now, and only a single one */
-		if (plugin->type == RDNS_PLUGIN_NETWORK) {
-			resolver->network_plugin = plugin;
+		if (plugin->type == RDNS_PLUGIN_CURVE) {
+			resolver->curve_plugin = plugin;
 		}
 	}
 }
@@ -571,8 +573,8 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 		if (resolver->periodic != NULL) {
 			resolver->async->del_periodic (resolver->async->data, resolver->periodic);
 		}
-		if (resolver->network_plugin != NULL && resolver->network_plugin->dtor != NULL) {
-			resolver->network_plugin->dtor (resolver, resolver->network_plugin->data);
+		if (resolver->curve_plugin != NULL && resolver->curve_plugin->dtor != NULL) {
+			resolver->curve_plugin->dtor (resolver, resolver->curve_plugin->data);
 		}
 		/* Stop IO watch on all IO channels */
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {

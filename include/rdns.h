@@ -126,7 +126,7 @@ struct rdns_async_context {
  * Type of rdns plugin
  */
 enum rdns_plugin_type {
-	RDNS_PLUGIN_NETWORK = 0//!< use the specified plugin instead of send/recv functions
+	RDNS_PLUGIN_CURVE = 0//!< use the specified plugin instead of send/recv functions
 };
 
 typedef ssize_t (*rdns_network_send_callback) (struct rdns_request *req, void *plugin_data);
@@ -142,7 +142,7 @@ struct rdns_plugin {
 			rdns_network_send_callback send_cb;
 			rdns_network_recv_callback recv_cb;
 			rdns_network_finish_callback finish_cb;
-		} network_plugin;
+		} curve_plugin;
 	} cb;
 	rdns_plugin_dtor_callback dtor;
 	void *data;

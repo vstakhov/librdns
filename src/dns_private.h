@@ -95,7 +95,9 @@ struct rdns_request {
 
 	void *async_event;
 
-	void *network_plugin_data;
+#ifdef HAVE_SODIUM
+	void *curve_plugin_data;
+#endif
 
 	UT_hash_handle hh;
 	ref_entry_t ref;
@@ -123,7 +125,7 @@ struct rdns_resolver {
 	struct rdns_async_context *async; /** async callbacks */
 	void *periodic; /** periodic event for resolver */
 
-	struct rdns_plugin *network_plugin;
+	struct rdns_plugin *curve_plugin;
 
 	bool async_binded;
 	bool initialized;
