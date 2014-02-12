@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -52,8 +53,9 @@ rdns_make_socket_nonblocking (int fd)
 static int
 rdns_make_inet_socket (int type, struct addrinfo *addr)
 {
-	int                            fd, r, optlen, on = 1, s_error;
-	struct addrinfo               *cur;
+	int fd, r, on = 1, s_error;
+	socklen_t optlen;
+	struct addrinfo *cur;
 
 	cur = addr;
 	while (cur) {
