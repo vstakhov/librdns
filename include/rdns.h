@@ -174,6 +174,16 @@ bool rdns_resolver_add_server (struct rdns_resolver *resolver,
 		const char *name, unsigned int port,
 		int priority, unsigned int io_cnt);
 
+
+/**
+ * Load nameservers definition from resolv.conf file
+ * @param resolver resolver object
+ * @param path path to resolv.conf file (/etc/resolv.conf typically)
+ * @return true if resolv.conf has been parsed
+ */
+bool rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver,
+		const char *path);
+
 /**
  * Register new plugin for rdns resolver
  * @param resolver

@@ -353,3 +353,84 @@ rdns_request_release (struct rdns_request *req)
 {
 	REF_RELEASE (req);
 }
+
+static bool
+rdns_resolver_conf_process_line (struct rdns_resolver *resolver, char *line)
+{
+	char *p, *c;
+	bool has_obrace = false, maybe_v6 = false;
+	unsigned int port = dns_port;
+
+	if (strncmp (line, "nameserver", sizeof ("nameserver") - 1) == 0) {
+		p = line + sizeof ("nameserver") - 1;
+		/* Skip spaces */
+		while (*p == ' ' || *p == '\t') {
+			p ++;
+		}
+		if (*p == '[') {
+			has_obrace = true;
+			p ++;
+		}
+		if (isxdigit (*p)) {
+			c = p;
+			while (isxdigit (*p) || *p == ':' || *p == '.') {
+				if (*p == ':') {
+					maybe_v6 = true;
+				}
+				p ++;
+			}
+			if (has_obrace && *p != ']') {
+				return false;
+			}
+			else if (*p != '\0' && *p != '\n') {
+				return false;
+			}
+			*p = '\0';
+			if (has_obrace) {
+				p ++;
+				if (*p == ':') {
+					/* Maybe we have a port definition */
+					port = strtoul (p + 1, NULL, 10);
+					if (port == 0 || port > UINT16_MAX) {
+						return false;
+					}
+				}
+			}
+
+			return rdns_resolver_add_server (resolver, c, port, 0, default_io_cnt);
+		}
+		else {
+			return false;
+		}
+	}
+	/* XXX: skip unknown resolv.conf lines */
+
+	return true;
+}
+
+bool
+rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver, const char *path)
+{
+	FILE *in;
+	char buf[BUFSIZ];
+
+	in = fopen (path, "r");
+
+	if (in == NULL) {
+		return false;
+	}
+
+	while (!feof (in)) {
+		if (fgets (buf, sizeof (buf), in) == NULL) {
+			fclose (in);
+			return false;
+		}
+		if (!rdns_resolver_conf_process_line (resolver, buf)) {
+			fclose (in);
+			return false;
+		}
+	}
+
+	fclose (in);
+	return true;
+}
