@@ -25,6 +25,7 @@
 #include "rdns_ev.h"
 #include "rdns_event.h"
 #include <stdio.h>
+#include <assert.h>
 
 static int remain_tests = 0;
 
@@ -71,16 +72,15 @@ main (int argc, char **argv)
 	resolver_ev = rdns_resolver_new ();
 	rdns_bind_libev (resolver_ev, loop);
 	/* Google and opendns */
-	rdns_resolver_add_server (resolver_ev, "8.8.8.8", 53, 0, 8);
-	rdns_resolver_add_server (resolver_ev, "208.67.222.222", 53, 0, 1);
+	assert (rdns_resolver_parse_resolv_conf (resolver_ev, "/etc/resolv.conf"));
 
 	resolver_event = rdns_resolver_new ();
 	rdns_bind_libevent (resolver_event, base);
-	rdns_resolver_add_server (resolver_event, "208.67.222.222", 53, 0, 8);
-	rdns_resolver_add_server (resolver_event, "8.8.8.8", 53, 0, 1);
+	assert (rdns_resolver_add_server (resolver_event, "208.67.222.222", 53, 0, 8));
+	assert (rdns_resolver_add_server (resolver_event, "8.8.8.8", 53, 0, 1));
 
-	rdns_resolver_init (resolver_ev);
-	rdns_resolver_init (resolver_event);
+	assert (rdns_resolver_init (resolver_ev));
+	assert (rdns_resolver_init (resolver_event));
 
 	rdns_test_a (resolver_ev);
 	ev_loop (loop, 0);
