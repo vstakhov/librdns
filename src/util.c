@@ -293,10 +293,13 @@ rdns_request_free (struct rdns_request *req)
 		if (req->reply != NULL) {
 			rdns_reply_free (req->reply);
 		}
-		if (req->state >= RDNS_REQUEST_SENT) {
+		if (req->state >= RDNS_REQUEST_SENT &&
+				req->state < RDNS_REQUEST_REPLIED) {
 			/* Remove timer */
 			req->async->del_timer (req->async->data,
 					req->async_event);
+			/* Remove from id hashes */
+			HASH_DEL (req->io->requests, req);
 		}
 		else if (req->state == RDNS_REQUEST_REGISTERED) {
 			/* Remove retransmit event */
@@ -310,8 +313,6 @@ rdns_request_free (struct rdns_request *req)
 		}
 #endif
 		if (req->io != NULL && req->state > RDNS_REQUEST_NEW) {
-			/* Remove from id hashes */
-			HASH_DEL (req->io->requests, req);
 			REF_RELEASE (req->io);
 			REF_RELEASE (req->resolver);
 		}

@@ -237,6 +237,15 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	return true;
 }
 
+static void
+rdns_request_unschedule (struct rdns_request *req)
+{
+	req->async->del_timer (req->async->data,
+			req->async_event);
+	/* Remove from id hashes */
+	HASH_DEL (req->io->requests, req);
+}
+
 void
 rdns_process_read (int fd, void *arg)
 {
@@ -268,7 +277,8 @@ rdns_process_read (int fd, void *arg)
 	if (req != NULL) {
 		if (rdns_parse_reply (in, r, req, &rep)) {
 			UPSTREAM_OK (req->io->srv);
-			REF_RETAIN (req);
+			req->state = RDNS_REQUEST_REPLIED;
+			rdns_request_unschedule (req);
 			req->func (rep, req->arg);
 			REF_RELEASE (req);
 		}
@@ -289,7 +299,8 @@ rdns_process_timer (void *arg)
 	if (req->retransmits == 0) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_TIMEOUT);
-		REF_RETAIN (req);
+		req->state = RDNS_REQUEST_REPLIED;
+		rdns_request_unschedule (req);
 		req->func (rep, req->arg);
 		REF_RELEASE (req);
 
@@ -308,7 +319,8 @@ rdns_process_timer (void *arg)
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_NETERR);
-		REF_RETAIN (req);
+		req->state = RDNS_REQUEST_REPLIED;
+		rdns_request_unschedule (req);
 		req->func (rep, req->arg);
 		REF_RELEASE (req);
 	}
@@ -349,7 +361,7 @@ rdns_process_retransmit (int fd, void *arg)
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_NETERR);
-		REF_RETAIN (req);
+		req->state = RDNS_REQUEST_REPLIED;
 		req->func (rep, req->arg);
 		REF_RELEASE (req);
 	}
