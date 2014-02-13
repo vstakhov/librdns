@@ -422,10 +422,10 @@ rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver, const char *pat
 
 	while (!feof (in)) {
 		if (fgets (buf, sizeof (buf), in) == NULL) {
-			fclose (in);
-			return false;
+			break;
 		}
 		if (!rdns_resolver_conf_process_line (resolver, buf)) {
+			DNS_DEBUG ("rdns_resolver_parse_resolv_conf: cannot parse line: %s", buf);
 			fclose (in);
 			return false;
 		}

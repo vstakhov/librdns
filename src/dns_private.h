@@ -41,6 +41,7 @@ static const unsigned initial_n = 128;
 static const unsigned initial_bias = 72;
 
 static const int dns_port = 53;
+static const int default_io_cnt = 8;
 
 #define UDP_PACKET_SIZE 4096
 
@@ -56,14 +57,10 @@ static const int dns_port = 53;
  */
 struct rdns_server {
 	char *name; /**< name of DNS server                                         */
-
 	unsigned int port;
-
-	struct rdns_io_channel *io_channels;
-	struct rdns_io_channel *cur_io_channel;
-
 	unsigned int io_cnt;
 
+	struct rdns_io_channel **io_channels;
 	upstream_entry_t up;
 };
 
@@ -112,7 +109,6 @@ struct rdns_io_channel {
 	int sock; /**< persistent socket                                          */
 	void *async_io; /** async opaque ptr */
 	struct rdns_request *requests; /**< requests in flight                                         */
-	struct rdns_io_channel *prev, *next;
 	bool want_reinit;
 	UT_hash_handle hh;
 	ref_entry_t ref;

@@ -431,7 +431,6 @@ rdns_make_request_full (
 
 	req->retransmits = repeats;
 	req->timeout = timeout;
-	req->io = NULL;
 	req->state = RDNS_REQUEST_NEW;
 	req->async = resolver->async;
 
@@ -443,15 +442,8 @@ rdns_make_request_full (
 		return NULL;
 	}
 	
-	/* Now select IO channel */
-
-	req->io = serv->cur_io_channel;
-	if (req->io == NULL) {
-		DNS_DEBUG ("cannot find suitable io channel for the server %s", serv->name);
-		REF_RELEASE (req);
-		return NULL;
-	}
-	serv->cur_io_channel = serv->cur_io_channel->next;
+	/* Select random IO channel */
+	req->io = serv->io_channels[ottery_rand_uint32 () % serv->io_cnt];
 	
 	/* Now send request to server */
 	r = rdns_send_request (req, req->io->sock, true);
@@ -478,8 +470,13 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 		return false;
 	}
 	
+	if (resolver->servers == NULL) {
+		return false;
+	}
+
 	/* Now init io channels to all servers */
 	UPSTREAM_FOREACH (resolver->servers, serv) {
+		serv->io_channels = calloc (serv->io_cnt, sizeof (struct rdns_io_channel *));
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
 			ioc->sock = rdns_make_client_socket (serv->name, serv->port, SOCK_DGRAM);
@@ -491,10 +488,9 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 				ioc->resolver = resolver;
 				ioc->async_io = resolver->async->add_read (resolver->async->data,
 						ioc->sock, ioc);
-				serv->cur_io_channel = ioc;
-				CDL_PREPEND (serv->io_channels, ioc);
 				HASH_ADD_INT (resolver->io_channels, sock, ioc);
 				REF_INIT_RETAIN (ioc, rdns_ioc_free);
+				serv->io_channels[i] = ioc;
 			}
 		}
 	}
@@ -567,7 +563,8 @@ static void
 rdns_resolver_free (struct rdns_resolver *resolver)
 {
 	struct rdns_server *serv, *stmp;
-	struct rdns_io_channel *ioc, *itmp1, *itmp2;
+	struct rdns_io_channel *ioc;
+	int i;
 
 	if (resolver->initialized) {
 		if (resolver->periodic != NULL) {
@@ -578,11 +575,13 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 		}
 		/* Stop IO watch on all IO channels */
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {
-			CDL_FOREACH_SAFE (serv->io_channels, ioc, itmp1, itmp2) {
+			for (i = 0; i < serv->io_cnt; i ++) {
+				ioc = serv->io_channels[i];
 				HASH_DELETE (hh, resolver->io_channels, ioc);
 				REF_RELEASE (ioc);
 			}
 			UPSTREAM_DEL (resolver->servers, serv);
+			free (serv->io_channels);
 			free (serv->name);
 			free (serv);
 		}
