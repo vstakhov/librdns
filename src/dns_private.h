@@ -30,8 +30,6 @@
 #include "upstream.h"
 #include "ref.h"
 
-#define DNS_DEBUG(...) do { fprintf (stderr, __VA_ARGS__); fprintf (stderr, "\n"); } while (0);
-
 static const unsigned base = 36;
 static const unsigned t_min = 1;
 static const unsigned t_max = 26;
@@ -56,7 +54,7 @@ static const int default_io_cnt = 8;
  * Represents DNS server
  */
 struct rdns_server {
-	char *name; /**< name of DNS server                                         */
+	char *name;
 	unsigned int port;
 	unsigned int io_cnt;
 
@@ -122,6 +120,10 @@ struct rdns_resolver {
 	void *periodic; /** periodic event for resolver */
 
 	struct rdns_plugin *curve_plugin;
+
+	rdns_log_function logger;
+	void *log_data;
+	enum rdns_log_level log_level;
 
 	bool async_binded;
 	bool initialized;

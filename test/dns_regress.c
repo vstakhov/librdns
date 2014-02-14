@@ -70,11 +70,13 @@ main (int argc, char **argv)
 
 	resolver_ev = rdns_resolver_new ();
 	rdns_bind_libev (resolver_ev, loop);
+	rdns_resolver_set_log_level (resolver_ev, RDNS_LOG_DEBUG);
 	/* Google and opendns */
 	assert (rdns_resolver_parse_resolv_conf (resolver_ev, "/etc/resolv.conf"));
 
 	resolver_event = rdns_resolver_new ();
 	rdns_bind_libevent (resolver_event, base);
+	rdns_resolver_set_log_level (resolver_event, RDNS_LOG_DEBUG);
 	assert (rdns_resolver_add_server (resolver_event, "208.67.222.222", 53, 0, 8));
 	assert (rdns_resolver_add_server (resolver_event, "8.8.8.8", 53, 0, 1));
 

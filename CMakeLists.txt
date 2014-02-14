@@ -51,6 +51,7 @@ ENDIF(ENABLE_CURVE MATCHES "ON")
 
 
 SET(LIBRDNSSRC			src/util.c
+						src/logger.c
 						src/punycode.c
 						src/curve.c
 						src/parse.c

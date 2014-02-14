@@ -37,6 +37,7 @@
 
 #include "ottery.h"
 #include "util.h"
+#include "logger.h"
 
 static int
 rdns_make_socket_nonblocking (int fd)
@@ -423,7 +424,7 @@ rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver, const char *pat
 			break;
 		}
 		if (!rdns_resolver_conf_process_line (resolver, buf)) {
-			DNS_DEBUG ("rdns_resolver_parse_resolv_conf: cannot parse line: %s", buf);
+			rdns_warn ("rdns_resolver_parse_resolv_conf: cannot parse line: %s", buf);
 			fclose (in);
 			return false;
 		}

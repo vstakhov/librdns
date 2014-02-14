@@ -44,7 +44,8 @@ uint8_t * rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len
  * @param make_name create name or just skip to the next label
  * @return true if a label has been successfully parsed
  */
-bool rdns_parse_labels (uint8_t *in, char **target,
+bool rdns_parse_labels (struct rdns_resolver *resolver,
+		uint8_t *in, char **target,
 		uint8_t **pos, struct rdns_reply *rep,
 		int *remain, bool make_name);
 
@@ -57,7 +58,8 @@ bool rdns_parse_labels (uint8_t *in, char **target,
  * @param remain remaining bytes (in/out)
  * @return 1 if rr has been parsed, 0 if rr has been skipped and -1 if there was a parsing error
  */
-int rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
+int rdns_parse_rr (struct rdns_resolver *resolver,
+		uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 		struct rdns_reply *rep, int *remain);
 
 #endif /* PARSE_H_ */

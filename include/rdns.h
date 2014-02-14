@@ -30,6 +30,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -148,7 +149,29 @@ struct rdns_plugin {
 	void *data;
 };
 
-/* Rspamd DNS API */
+/*
+ * RDNS logger types
+ */
+/*
+ * These types are somehow compatible with glib
+ */
+enum rdns_log_level {
+	  RDNS_LOG_ERROR = 1 << 3,
+	  RDNS_LOG_WARNING = 1 << 4,
+	  RDNS_LOG_INFO = 1 << 6,
+	  RDNS_LOG_DEBUG = 1 << 7
+};
+typedef void (*rdns_log_function) (
+									void *log_data, //!< opaque data pointer
+									enum rdns_log_level level, //!< level of message
+									const char *function, //!< calling function
+									const char *format, //!< format
+									va_list args //!< set of arguments
+									);
+
+/*
+ * RDNS API
+ */
 
 /**
  * Create DNS resolver structure
@@ -183,6 +206,23 @@ bool rdns_resolver_add_server (struct rdns_resolver *resolver,
  */
 bool rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver,
 		const char *path);
+
+/**
+ * Set an external logger function to log messages from the resolver
+ * @param resolver resolver object
+ * @param logger logger callback
+ * @param log_data opaque data
+ */
+void rdns_resolver_set_logger (struct rdns_resolver *resolver,
+		rdns_log_function logger, void *log_data);
+
+/**
+ * Set log level for an internal logger (stderr one)
+ * @param resolver resolver object
+ * @param level desired log level
+ */
+void rdns_resolver_set_log_level (struct rdns_resolver *resolver,
+		enum rdns_log_level level);
 
 /**
  * Register new plugin for rdns resolver

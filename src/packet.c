@@ -26,6 +26,7 @@
 #include "punycode.h"
 #include "packet.h"
 #include "util.h"
+#include "logger.h"
 
 void
 rdns_allocate_packet (struct rdns_request* req, unsigned int namelen)
@@ -92,6 +93,7 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 	uint32_t *uclabel;
 	size_t punylabel_len, uclabel_len;
 	uint8_t tmp_label[DNS_D_MAXLABEL];
+	struct rdns_resolver *resolver = req->resolver;
 
 	if (namelen == 0) {
 		namelen = strlen (name);
@@ -126,16 +128,16 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 		else {
 			if (dot) {
 				if (label_len > DNS_D_MAXLABEL) {
-					DNS_DEBUG ("dns name component is longer than 63 bytes, should be stripped");
+					rdns_info ("dns name component is longer than 63 bytes, should be stripped");
 					label_len = DNS_D_MAXLABEL;
 				}
 				if (remain < label_len + 1) {
 					label_len = remain - 1;
-					DNS_DEBUG ("no buffer remain for constructing query, strip to %ud", label_len);
+					rdns_info ("no buffer remain for constructing query, strip to %d", (int)label_len);
 				}
 				if (label_len == 0) {
 					/* Two dots in order, skip this */
-					DNS_DEBUG ("name contains two or more dots in a row, replace it with one dot");
+					rdns_info ("name contains two or more dots in a row, replace it with one dot");
 					begin = dot + 1;
 					continue;
 				}
@@ -151,12 +153,12 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 					break;
 				}
 				if (label_len > DNS_D_MAXLABEL) {
-					DNS_DEBUG ("dns name component is longer than 63 bytes, should be stripped");
+					rdns_info ("dns name component is longer than 63 bytes, should be stripped");
 					label_len = DNS_D_MAXLABEL;
 				}
 				if (remain < label_len + 1) {
 					label_len = remain - 1;
-					DNS_DEBUG ("no buffer remain for constructing query, strip to %ud", label_len);
+					rdns_info ("no buffer remain for constructing query, strip to %d", (int)label_len);
 				}
 				*pos++ = (uint8_t)label_len;
 				memcpy (pos, begin, label_len);
@@ -165,7 +167,7 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 			}
 		}
 		if (remain == 0) {
-			DNS_DEBUG ("no buffer space available, aborting");
+			rdns_warn ("no buffer space available, aborting");
 			break;
 		}
 	}

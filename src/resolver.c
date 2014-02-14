@@ -38,6 +38,7 @@
 #include "util.h"
 #include "packet.h"
 #include "parse.h"
+#include "logger.h"
 
 
 #if 0
@@ -127,7 +128,7 @@ rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 			return 0;
 		} 
 		else {
-			DNS_DEBUG ("send failed: %s for server %s", strerror (errno), serv->name);
+			rdns_debug ("send failed: %s for server %s", strerror (errno), serv->name);
 			return -1;
 		}
 	}
@@ -168,12 +169,13 @@ rdns_find_dns_request (uint8_t *in, struct rdns_io_channel *ioc)
 	struct dns_header *header = (struct dns_header *)in;
 	struct rdns_request *req;
 	int id;
+	struct rdns_resolver *resolver = ioc->resolver;
 	
 	id = header->qid;
 	HASH_FIND_INT (ioc->requests, &id, req);
 	if (req == NULL) {
 		/* No such requests found */
-		DNS_DEBUG ("DNS request with id %d has not been found for IO channel", (int)id);
+		rdns_debug ("DNS request with id %d has not been found for IO channel", (int)id);
 	}
 
 	return req;
@@ -187,12 +189,13 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	struct rdns_reply *rep;
 	struct rdns_reply_entry *elt;
 	uint8_t *pos;
+	struct rdns_resolver *resolver = req->resolver;
 
 	int i, t;
 
 	/* First check header fields */
 	if (header->qr == 0) {
-		DNS_DEBUG ("got request while waiting for reply");
+		rdns_info ("got request while waiting for reply");
 		return false;
 	}
 
@@ -202,7 +205,7 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	 */
 	if ((pos = rdns_request_reply_cmp (req, in + sizeof (struct dns_header),
 			r - sizeof (struct dns_header))) == NULL) {
-		DNS_DEBUG ("DNS request with id %d is for different query, ignoring", (int)req->id);
+		rdns_info ("DNS request with id %d is for different query, ignoring", (int)req->id);
 		return false;
 	}
 	/*
@@ -211,7 +214,7 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	rep = rdns_make_reply (req, header->rcode);
 
 	if (rep == NULL) {
-		DNS_DEBUG ("Cannot allocate memory for reply");
+		rdns_warn ("Cannot allocate memory for reply");
 		return false;
 	}
 
@@ -220,10 +223,10 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 		/* Extract RR records */
 		for (i = 0; i < ntohs (header->ancount); i ++) {
 			elt = malloc (sizeof (struct rdns_reply_entry));
-			t = rdns_parse_rr (in, elt, &pos, rep, &r);
+			t = rdns_parse_rr (resolver, in, elt, &pos, rep, &r);
 			if (t == -1) {
 				free (elt);
-				DNS_DEBUG ("incomplete reply");
+				rdns_debug ("incomplete reply");
 				break;
 			}
 			else if (t == 1) {
@@ -444,7 +447,7 @@ rdns_make_request_full (
 	UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
 
 	if (serv == NULL) {
-		DNS_DEBUG ("cannot find suitable server for request");
+		rdns_warn ("cannot find suitable server for request");
 		REF_RELEASE (req);
 		return NULL;
 	}
@@ -566,6 +569,22 @@ rdns_resolver_add_server (struct rdns_resolver *resolver,
 	return true;
 }
 
+void
+rdns_resolver_set_logger (struct rdns_resolver *resolver,
+		rdns_log_function logger, void *log_data)
+{
+	resolver->logger = logger;
+	resolver->log_data = log_data;
+}
+
+void
+rdns_resolver_set_log_level (struct rdns_resolver *resolver,
+		enum rdns_log_level level)
+{
+	resolver->log_level = level;
+}
+
+
 static void
 rdns_resolver_free (struct rdns_resolver *resolver)
 {
@@ -606,6 +625,9 @@ rdns_resolver_new (void)
 	new = calloc (1, sizeof (struct rdns_resolver));
 
 	REF_INIT_RETAIN (new, rdns_resolver_free);
+
+	new->logger = rdns_logger_internal;
+	new->log_data = new;
 
 	return new;
 }

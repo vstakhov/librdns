@@ -32,6 +32,7 @@
 #include "rdns_curve.h"
 #include "ottery.h"
 #include "ref.h"
+#include "logger.h"
 
 #ifdef HAVE_SODIUM
 #include <sodium.h>
@@ -78,6 +79,7 @@ struct rdns_curve_ctx {
 	struct rdns_curve_request *requests;
 	double key_refresh_interval;
 	void *key_refresh_event;
+	struct rdns_resolver *resolver;
 };
 
 static struct rdns_curve_client_key *
@@ -225,8 +227,10 @@ static void
 rdns_curve_refresh_key_callback (void *user_data)
 {
 	struct rdns_curve_ctx *ctx = user_data;
+	struct rdns_resolver *resolver;
 
-	DNS_DEBUG ("refresh curve keys");
+	resolver = ctx->resolver;
+	rdns_info ("refresh dnscurve keys");
 	REF_RELEASE (ctx->cur_key);
 	ctx->cur_key = rdns_curve_client_key_new (ctx);
 	REF_INIT_RETAIN (ctx->cur_key, rdns_curve_client_key_free);
@@ -259,6 +263,7 @@ rdns_curve_register_plugin (struct rdns_resolver *resolver,
 					resolver->async->data, ctx->key_refresh_interval,
 					rdns_curve_refresh_key_callback, ctx);
 		}
+		ctx->resolver = resolver;
 		rdns_resolver_register_plugin (resolver, plugin);
 	}
 }
@@ -348,7 +353,9 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 	unsigned char *p, *box;
 	unsigned char enonce[crypto_box_NONCEBYTES];
 	struct rdns_curve_request *creq;
+	struct rdns_resolver *resolver;
 
+	resolver = ctx->resolver;
 	ret = read (ioc->sock, buf, len);
 
 	if (ret <= 0 || ret < 64) {
@@ -361,7 +368,7 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 		p = ((unsigned char *)buf) + 8;
 		HASH_FIND (hh, ctx->requests, p, 12, creq);
 		if (creq == NULL) {
-			DNS_DEBUG ("rdns_curve_recv: unable to find nonce");
+			rdns_info ("unable to find nonce in the internal hash");
 			return ret;
 		}
 		memcpy (enonce, p, crypto_box_NONCEBYTES);
@@ -384,7 +391,7 @@ rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len, void *plugi
 			*req_out = creq->req;
 		}
 		else {
-			DNS_DEBUG ("rdns_curve_recv: unable open cryptobox of size %d", (int)boxlen);
+			rdns_info ("unable open cryptobox of size %d", (int)boxlen);
 		}
 		free (box);
 	}

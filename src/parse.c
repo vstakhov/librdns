@@ -24,6 +24,7 @@
 #include "rdns.h"
 #include "dns_private.h"
 #include "parse.h"
+#include "logger.h"
 
 static uint8_t *
 rdns_decompress_label (uint8_t *begin, uint16_t *len, uint16_t max)
@@ -31,7 +32,6 @@ rdns_decompress_label (uint8_t *begin, uint16_t *len, uint16_t max)
 	uint16_t offset = (*len);
 
 	if (offset > max) {
-		DNS_DEBUG ("invalid DNS compression pointer: %d max is %d", (int)offset, (int)max);
 		return NULL;
 	}
 	*len = *(begin + offset);
@@ -46,6 +46,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 	uint8_t *p, *c, *l1, *l2;
 	uint16_t len1, len2;
 	int decompressed = 0;
+	struct rdns_resolver *resolver;
 
 	/* QR format:
 	 * labels - len:octets
@@ -63,7 +64,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 		len1 = *p;
 		len2 = *c;
 		if (p - in > len) {
-			DNS_DEBUG ("invalid dns reply");
+			rdns_info ("invalid dns reply");
 			return NULL;
 		}
 		/* This may be compressed, so we need to decompress it */
@@ -85,7 +86,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 			len2 = UNCOMPRESS_DNS_OFFSET(p);
 			l2 = rdns_decompress_label (req->packet, &len2, len);
 			if (l2 == NULL) {
-				DNS_DEBUG ("invalid DNS pointer");
+				rdns_info ("invalid DNS pointer, cannot decompress");
 				return NULL;
 			}
 			decompressed ++;
@@ -122,7 +123,8 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 #define MAX_RECURSION_LEVEL 10
 
 bool
-rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *rep,
+rdns_parse_labels (struct rdns_resolver *resolver,
+		uint8_t *in, char **target, uint8_t **pos, struct rdns_reply *rep,
 		int *remain, bool make_name)
 {
 	uint16_t namelen = 0;
@@ -135,7 +137,7 @@ rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply 
 	/* First go through labels and calculate name length */
 	while (p - begin < length) {
 		if (ptrs > MAX_RECURSION_LEVEL) {
-			DNS_DEBUG ("dns pointers are nested too much");
+			rdns_info ("dns pointers are nested too much");
 			return false;
 		}
 		llen = *p;
@@ -153,7 +155,7 @@ rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply 
 				llen = UNCOMPRESS_DNS_OFFSET(p);
 				l = rdns_decompress_label (in, &llen, end - in);
 				if (l == NULL) {
-					DNS_DEBUG ("invalid DNS pointer");
+					rdns_info ("invalid DNS pointer");
 					return false;
 				}
 				if (!got_compression) {
@@ -163,7 +165,7 @@ rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply 
 					got_compression = true;
 				}
 				if (l < in || l > begin + length) {
-					DNS_DEBUG  ("invalid pointer in DNS packet");
+					rdns_info  ("invalid pointer in DNS packet");
 					return false;
 				}
 				begin = l;
@@ -173,7 +175,7 @@ rdns_parse_labels (uint8_t *in, char **target, uint8_t **pos, struct rdns_reply 
 				labels ++;
 			}
 			else {
-				DNS_DEBUG ("DNS packet has incomplete compressed label, input length: %d bytes, remain: %d",
+				rdns_info ("DNS packet has incomplete compressed label, input length: %d bytes, remain: %d",
 						*remain, new_remain);
 				return false;
 			}
@@ -233,7 +235,8 @@ end:
 #define SKIP(type) do { p += sizeof(type); *remain -= sizeof(type); } while (0)
 
 int
-rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
+rdns_parse_rr (struct rdns_resolver *resolver,
+		uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 		struct rdns_reply *rep, int *remain)
 {
 	uint8_t *p = *pos, parts;
@@ -241,12 +244,12 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 	bool parsed = false;
 
 	/* Skip the whole name */
-	if (! rdns_parse_labels (in, NULL, &p, rep, remain, false)) {
-		DNS_DEBUG ("bad RR name");
+	if (! rdns_parse_labels (resolver, in, NULL, &p, rep, remain, false)) {
+		rdns_info ("bad RR name");
 		return -1;
 	}
 	if (*remain < (int)sizeof (uint16_t) * 6) {
-		DNS_DEBUG ("stripped dns reply: %d bytes remain", *remain);
+		rdns_info ("stripped dns reply: %d bytes remain", *remain);
 		return -1;
 	}
 	GET16 (type);
@@ -265,7 +268,7 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 			elt->type = DNS_REQUEST_A;
 		}
 		else {
-			DNS_DEBUG ("corrupted A record");
+			rdns_info ("corrupted A record");
 			return -1;
 		}
 		break;
@@ -278,13 +281,14 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 			elt->type = DNS_REQUEST_AAA;
 		}
 		else {
-			DNS_DEBUG ("corrupted AAAA record");
+			rdns_info ("corrupted AAAA record");
 			return -1;
 		}
 		break;
 	case DNS_T_PTR:
-		if (! rdns_parse_labels (in, &elt->content.ptr.name, &p, rep, remain, true)) {
-			DNS_DEBUG ("invalid labels in PTR record");
+		if (! rdns_parse_labels (resolver, in, &elt->content.ptr.name, &p,
+				rep, remain, true)) {
+			rdns_info ("invalid labels in PTR record");
 			return -1;
 		}
 		parsed = true;
@@ -292,8 +296,9 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 		break;
 	case DNS_T_MX:
 		GET16 (elt->content.mx.priority);
-		if (! rdns_parse_labels (in, &elt->content.mx.name, &p, rep, remain, true)) {
-			DNS_DEBUG ("invalid labels in MX record");
+		if (! rdns_parse_labels (resolver, in, &elt->content.mx.name, &p,
+				rep, remain, true)) {
+			rdns_info ("invalid labels in MX record");
 			return -1;
 		}
 		parsed = true;
@@ -324,14 +329,15 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 		break;
 	case DNS_T_SRV:
 		if (p - *pos > (int)(*remain - sizeof (uint16_t) * 3)) {
-			DNS_DEBUG ("stripped dns reply while reading SRV record");
+			rdns_info ("stripped dns reply while reading SRV record");
 			return -1;
 		}
 		GET16 (elt->content.srv.priority);
 		GET16 (elt->content.srv.weight);
 		GET16 (elt->content.srv.port);
-		if (! rdns_parse_labels (in, &elt->content.srv.target, &p, rep, remain, true)) {
-			DNS_DEBUG ("invalid labels in SRV record");
+		if (! rdns_parse_labels (resolver, in, &elt->content.srv.target,
+				&p, rep, remain, true)) {
+			rdns_info ("invalid labels in SRV record");
 			return -1;
 		}
 		parsed = true;
@@ -343,7 +349,7 @@ rdns_parse_rr (uint8_t *in, struct rdns_reply_entry *elt, uint8_t **pos,
 		*remain -= datalen;
 		break;
 	default:
-		DNS_DEBUG ("unexpected RR type: %d", type);
+		rdns_debug ("unexpected RR type: %d", type);
 		p += datalen;
 		*remain -= datalen;
 		break;
