@@ -185,7 +185,6 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 {
 	struct dns_header *header = (struct dns_header *)in;
 	struct rdns_reply *rep;
-	struct rdns_io_channel *ioc;
 	struct rdns_reply_entry *elt;
 	uint8_t *pos;
 
@@ -289,11 +288,8 @@ void
 rdns_process_timer (void *arg)
 {
 	struct rdns_request *req = (struct rdns_request *)arg;
-	struct rdns_resolver *resolver;
 	struct rdns_reply *rep;
 	int r;
-
-	resolver = req->resolver;
 
 	req->retransmits --;
 	if (req->retransmits == 0) {
@@ -387,7 +383,6 @@ rdns_make_request_full (
 	va_list args;
 	struct rdns_request *req;
 	struct rdns_server *serv;
-	struct in_addr *addr;
 	int r, type;
 	unsigned int i;
 
@@ -576,7 +571,7 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 {
 	struct rdns_server *serv, *stmp;
 	struct rdns_io_channel *ioc;
-	int i;
+	unsigned int i;
 
 	if (resolver->initialized) {
 		if (resolver->periodic != NULL) {

@@ -45,7 +45,7 @@ typedef struct ref_entry_s {
 	(obj)->ref.dtor = (ref_dtor_cb_t)(dtor_cb);						\
 } while (0)
 
-#ifdef HAVE_ATOMIC
+#ifdef HAVE_ATOMIC_BUILTINS
 #define REF_RETAIN(obj) do {										\
     __sync_add_and_fetch (&(obj)->ref.refcount, 1);					\
 } while (0)

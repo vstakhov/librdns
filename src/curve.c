@@ -146,9 +146,7 @@ rdns_curve_ctx_add_key (struct rdns_curve_ctx *ctx,
 		const char *name, const unsigned char *pubkey)
 {
 	struct rdns_curve_entry *entry;
-	int len;
 	bool success = true;
-	unsigned char *pk, *sk;
 
 	entry = malloc (sizeof (struct rdns_curve_entry));
 	if (entry != NULL) {
@@ -194,7 +192,7 @@ rdns_curve_hex_to_byte (const char *in, unsigned char *out)
 unsigned char *
 rdns_curve_key_from_hex (const char *hex)
 {
-	int len = strlen (hex), i;
+	unsigned int len = strlen (hex), i;
 	unsigned char *res = NULL;
 
 	if (len == crypto_box_PUBLICKEYBYTES * 2) {

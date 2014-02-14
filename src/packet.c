@@ -87,7 +87,7 @@ rdns_maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigne
 void
 rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int namelen)
 {
-	uint8_t *pos = req->packet + req->pos, *end, *dot, *name_pos, *begin;
+	uint8_t *pos = req->packet + req->pos, *dot, *name_pos, *begin;
 	unsigned int remain = req->packet_len - req->pos - 5, label_len;
 	uint32_t *uclabel;
 	size_t punylabel_len, uclabel_len;
@@ -98,7 +98,6 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 	}
 
 	begin = (uint8_t *)name;
-	end = (uint8_t *)name + namelen;
 	for (;;) {
 		/* Check label for unicode characters */
 		if (rdns_maybe_punycode_label (begin, &name_pos, &dot, &label_len)) {

@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #include "ottery.h"
 #include "util.h"
@@ -53,7 +54,7 @@ rdns_make_socket_nonblocking (int fd)
 static int
 rdns_make_inet_socket (int type, struct addrinfo *addr)
 {
-	int fd, r, on = 1, s_error;
+	int fd, r, s_error;
 	socklen_t optlen;
 	struct addrinfo *cur;
 
@@ -104,8 +105,7 @@ out:
 static int
 rdns_make_unix_socket (const char *path, struct sockaddr_un *addr, int type)
 {
-	int fd = -1, s_error, r, serrno, on = 1;
-	struct stat st;
+	int fd = -1, s_error, r, serrno;
 	socklen_t optlen;
 
 	if (path == NULL) {
@@ -359,7 +359,7 @@ static bool
 rdns_resolver_conf_process_line (struct rdns_resolver *resolver, char *line)
 {
 	char *p, *c;
-	bool has_obrace = false, maybe_v6 = false;
+	bool has_obrace = false;
 	unsigned int port = dns_port;
 
 	if (strncmp (line, "nameserver", sizeof ("nameserver") - 1) == 0) {
@@ -375,9 +375,6 @@ rdns_resolver_conf_process_line (struct rdns_resolver *resolver, char *line)
 		if (isxdigit (*p)) {
 			c = p;
 			while (isxdigit (*p) || *p == ':' || *p == '.') {
-				if (*p == ':') {
-					maybe_v6 = true;
-				}
 				p ++;
 			}
 			if (has_obrace && *p != ']') {
