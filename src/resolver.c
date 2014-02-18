@@ -285,6 +285,10 @@ rdns_process_read (int fd, void *arg)
 			REF_RELEASE (req);
 		}
 	}
+	else {
+		/* Still want to increase uses */
+		ioc->uses ++;
+	}
 }
 
 void
@@ -293,8 +297,13 @@ rdns_process_timer (void *arg)
 	struct rdns_request *req = (struct rdns_request *)arg;
 	struct rdns_reply *rep;
 	int r;
+	bool renew = false;
+	struct rdns_resolver *resolver;
+	struct rdns_server *serv = NULL;
 
 	req->retransmits --;
+	resolver = req->resolver;
+
 	if (req->retransmits == 0) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
 		rep = rdns_make_reply (req, DNS_RC_TIMEOUT);
@@ -306,7 +315,29 @@ rdns_process_timer (void *arg)
 		return;
 	}
 
-	r = rdns_send_request (req, req->io->sock, false);
+	if (!req->io->active) {
+		/* Do not reschedule IO requests on inactive sockets */
+		rdns_debug ("reschedule request with id: %d", (int)req->id);
+		rdns_request_unschedule (req);
+		REF_RELEASE (req->io);
+
+		UPSTREAM_SELECT_ROUND_ROBIN (resolver->servers, serv);
+
+		if (serv == NULL) {
+			rdns_warn ("cannot find suitable server for request");
+			rep = rdns_make_reply (req, DNS_RC_SERVFAIL);
+			req->state = RDNS_REQUEST_REPLIED;
+			req->func (rep, req->arg);
+			REF_RELEASE (req);
+		}
+
+		/* Select random IO channel */
+		req->io = serv->io_channels[ottery_rand_uint32 () % serv->io_cnt];
+		req->io->uses ++;
+		renew = true;
+	}
+
+	r = rdns_send_request (req, req->io->sock, renew);
 	if (r == 0) {
 		/* Retransmit one more time */
 		req->async->del_timer (req->async->data,
@@ -363,6 +394,7 @@ rdns_process_ioc_refresh (void *arg)
 						continue;
 					}
 					nioc->srv = serv;
+					nioc->active = true;
 					nioc->resolver = resolver;
 					nioc->async_io = resolver->async->add_read (resolver->async->data,
 							nioc->sock, nioc);
@@ -370,6 +402,7 @@ rdns_process_ioc_refresh (void *arg)
 					serv->io_channels[i] = nioc;
 					rdns_debug ("scheduled io channel for server %s to be refreshed after "
 							"%lu usages", serv->name, (unsigned long)ioc->uses);
+					ioc->active = false;
 					REF_RELEASE (ioc);
 				}
 			}
@@ -532,6 +565,7 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
 			ioc->sock = rdns_make_client_socket (serv->name, serv->port, SOCK_DGRAM);
+			ioc->active = true;
 			if (ioc->sock == -1) {
 				return false;
 			}

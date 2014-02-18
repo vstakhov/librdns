@@ -105,6 +105,7 @@ struct rdns_io_channel {
 	struct rdns_server *srv;
 	struct rdns_resolver *resolver;
 	int sock; /**< persistent socket                                          */
+	bool active;
 	void *async_io; /** async opaque ptr */
 	struct rdns_request *requests; /**< requests in flight                                         */
 	uint64_t uses;
