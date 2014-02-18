@@ -224,6 +224,16 @@ void rdns_resolver_set_logger (struct rdns_resolver *resolver,
 void rdns_resolver_set_log_level (struct rdns_resolver *resolver,
 		enum rdns_log_level level);
 
+
+/**
+ * Set maximum number of dns requests to be sent to a socket to be refreshed
+ * @param resolver resolver object
+ * @param max_ioc_uses unsigned count of socket usage limit
+ * @param check_time specifies how often to check for sockets and refresh them
+ */
+void rdns_resolver_set_max_io_uses (struct rdns_resolver *resolver,
+		uint64_t max_ioc_uses, double check_time);
+
 /**
  * Register new plugin for rdns resolver
  * @param resolver

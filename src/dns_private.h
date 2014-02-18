@@ -107,8 +107,7 @@ struct rdns_io_channel {
 	int sock; /**< persistent socket                                          */
 	void *async_io; /** async opaque ptr */
 	struct rdns_request *requests; /**< requests in flight                                         */
-	bool want_reinit;
-	UT_hash_handle hh;
+	uint64_t uses;
 	ref_entry_t ref;
 };
 
@@ -124,6 +123,9 @@ struct rdns_resolver {
 	rdns_log_function logger;
 	void *log_data;
 	enum rdns_log_level log_level;
+
+	uint64_t max_ioc_uses;
+	void *refresh_ioc_periodic;
 
 	bool async_binded;
 	bool initialized;

@@ -328,12 +328,53 @@ rdns_process_timer (void *arg)
 	}
 }
 
-void
+static void
 rdns_process_periodic (void *arg)
 {
 	struct rdns_resolver *resolver = (struct rdns_resolver*)arg;
 
 	UPSTREAM_RESCAN (resolver->servers, time (NULL));
+}
+
+static void
+rdns_process_ioc_refresh (void *arg)
+{
+	struct rdns_resolver *resolver = (struct rdns_resolver*)arg;
+	struct rdns_server *serv;
+	struct rdns_io_channel *ioc, *nioc;
+	unsigned int i;
+
+	if (resolver->max_ioc_uses > 0) {
+		UPSTREAM_FOREACH (resolver->servers, serv) {
+			for (i = 0; i < serv->io_cnt; i ++) {
+				ioc = serv->io_channels[i];
+				if (ioc->uses > resolver->max_ioc_uses) {
+					/* Schedule IOC removing */
+					nioc = calloc (1, sizeof (struct rdns_io_channel));
+					if (nioc == NULL) {
+						rdns_err ("calloc fails to allocate rdns_io_channel");
+						continue;
+					}
+					nioc->sock = rdns_make_client_socket (serv->name, serv->port,
+							SOCK_DGRAM);
+					if (nioc->sock == -1) {
+						rdns_err ("cannot open socket to %s: %s", serv->name,
+								strerror (errno));
+						continue;
+					}
+					nioc->srv = serv;
+					nioc->resolver = resolver;
+					nioc->async_io = resolver->async->add_read (resolver->async->data,
+							nioc->sock, nioc);
+					REF_INIT_RETAIN (nioc, rdns_ioc_free);
+					serv->io_channels[i] = nioc;
+					rdns_debug ("scheduled io channel for server %s to be refreshed after "
+							"%lu usages", serv->name, (unsigned long)ioc->uses);
+					REF_RELEASE (ioc);
+				}
+			}
+		}
+	}
 }
 
 void
@@ -454,6 +495,7 @@ rdns_make_request_full (
 	
 	/* Select random IO channel */
 	req->io = serv->io_channels[ottery_rand_uint32 () % serv->io_cnt];
+	req->io->uses ++;
 	
 	/* Now send request to server */
 	r = rdns_send_request (req, req->io->sock, true);
@@ -498,7 +540,6 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 				ioc->resolver = resolver;
 				ioc->async_io = resolver->async->add_read (resolver->async->data,
 						ioc->sock, ioc);
-				HASH_ADD_INT (resolver->io_channels, sock, ioc);
 				REF_INIT_RETAIN (ioc, rdns_ioc_free);
 				serv->io_channels[i] = ioc;
 			}
@@ -585,6 +626,24 @@ rdns_resolver_set_log_level (struct rdns_resolver *resolver,
 }
 
 
+void
+rdns_resolver_set_max_io_uses (struct rdns_resolver *resolver,
+		uint64_t max_ioc_uses, double check_time)
+{
+	if (resolver->refresh_ioc_periodic != NULL) {
+		resolver->async->del_periodic (resolver->async->data,
+				resolver->refresh_ioc_periodic);
+		resolver->refresh_ioc_periodic = NULL;
+	}
+
+	resolver->max_ioc_uses = max_ioc_uses;
+	if (check_time > 0.0 && resolver->async->add_periodic) {
+		resolver->refresh_ioc_periodic =
+				resolver->async->add_periodic (resolver->async->data,
+				check_time, rdns_process_ioc_refresh, resolver);
+	}
+}
+
 static void
 rdns_resolver_free (struct rdns_resolver *resolver)
 {
@@ -596,6 +655,10 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 		if (resolver->periodic != NULL) {
 			resolver->async->del_periodic (resolver->async->data, resolver->periodic);
 		}
+		if (resolver->refresh_ioc_periodic != NULL) {
+			resolver->async->del_periodic (resolver->async->data,
+					resolver->refresh_ioc_periodic);
+		}
 		if (resolver->curve_plugin != NULL && resolver->curve_plugin->dtor != NULL) {
 			resolver->curve_plugin->dtor (resolver, resolver->curve_plugin->data);
 		}
@@ -603,7 +666,6 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 		UPSTREAM_FOREACH_SAFE (resolver->servers, serv, stmp) {
 			for (i = 0; i < serv->io_cnt; i ++) {
 				ioc = serv->io_channels[i];
-				HASH_DELETE (hh, resolver->io_channels, ioc);
 				REF_RELEASE (ioc);
 			}
 			UPSTREAM_DEL (resolver->servers, serv);
