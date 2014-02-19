@@ -315,6 +315,13 @@ bool rdns_request_has_type (struct rdns_request *req, enum rdns_request_type typ
  */
 const char* rdns_request_get_name (struct rdns_request *req);
 
+/**
+ * Return PTR string for a request (ipv4 or ipv6) addresses
+ * @param str string representation of IP address
+ * @return name to resolve or NULL if `str` is not an IP address; caller must free result when it is unused
+ */
+char * rdns_generate_ptr_from_str (const char *str);
+
 /*
  * Private functions used by async libraries as callbacks
  */

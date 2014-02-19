@@ -445,3 +445,47 @@ rdns_request_get_name (struct rdns_request *req)
 {
 	return req->requested_name;
 }
+
+char *
+rdns_generate_ptr_from_str (const char *str)
+{
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+	} addr;
+	char *res = NULL;
+	unsigned char *bytes;
+	size_t len;
+
+	if (inet_pton (AF_INET, str, &addr.v4) == 0) {
+		bytes = (unsigned char *)&addr.v4;
+
+		len = 4 * 4 + sizeof ("in-addr.arpa");
+		res = malloc (len);
+		if (res) {
+			snprintf (res, len, "%uc.%uc.%uc.%uc.in-addr.arpa",
+					bytes[3], bytes[2], bytes[1], bytes[0]);
+		}
+	}
+	else if (inet_pton (AF_INET6, str, &addr.v6) == 0) {
+		bytes = (unsigned char *)&addr.v6;
+
+		len = 2*32 + sizeof ("ip6.arpa");
+		res = malloc (len);
+		if (res) {
+			snprintf(res, len,
+					"%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x."
+					"%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.ip6.arpa",
+					bytes[15]&0xF, bytes[15] >> 4, bytes[14]&0xF, bytes[14] >> 4,
+					bytes[13]&0xF, bytes[13] >> 4, bytes[12]&0xF, bytes[12] >> 4,
+					bytes[11]&0xF, bytes[11] >> 4, bytes[10]&0xF, bytes[10] >> 4,
+					bytes[9]&0xF, bytes[9] >> 4, bytes[8]&0xF, bytes[8] >> 4,
+					bytes[7]&0xF, bytes[7] >> 4, bytes[6]&0xF, bytes[6] >> 4,
+					bytes[5]&0xF, bytes[5] >> 4, bytes[4]&0xF, bytes[4] >> 4,
+					bytes[3]&0xF, bytes[3] >> 4, bytes[2]&0xF, bytes[2] >> 4,
+					bytes[1]&0xF, bytes[1] >> 4, bytes[0]&0xF, bytes[0] >> 4);
+		}
+	}
+
+	return res;
+}
