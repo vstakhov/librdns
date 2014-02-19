@@ -11,16 +11,18 @@ OPTION(ENABLE_CURVE "Enable DNSCurve plugin" OFF)
 INCLUDE(CheckFunctionExists)
 INCLUDE(CheckSymbolExists)
 
-CHECK_SYMBOL_EXISTS(IPV6_V6ONLY "sys/socket.h;netinet/in.h" HAVE_IPV6_V6ONLY)
+IF(NOT SLAVE_BUILD)
+	CHECK_SYMBOL_EXISTS(IPV6_V6ONLY "sys/socket.h;netinet/in.h" HAVE_IPV6_V6ONLY)
+	
+	CHECK_SYMBOL_EXISTS(getaddrinfo "sys/types.h;sys/socket.h;netdb.h" HAVE_GETADDRINFO)
+	IF(NOT HAVE_GETADDRINFO)
+		MESSAGE(FATAL_ERROR "Your system does not support getaddrinfo call, please consider upgrading it to run librdns")
+	ENDIF(NOT HAVE_GETADDRINFO)
+	
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+ENDIF(NOT SLAVE_BUILD)
 
-CHECK_SYMBOL_EXISTS(getaddrinfo "sys/types.h;sys/socket.h;netdb.h" HAVE_GETADDRINFO)
-IF(NOT HAVE_GETADDRINFO)
-	MESSAGE(FATAL_ERROR "Your system does not support getaddrinfo call, please consider upgrading it to run librdns")
-ENDIF(NOT HAVE_GETADDRINFO)
-
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-
-IF(ENABLE_CURVE MATCHES "ON")
+IF(ENABLE_CURVE MATCHES "ON" AND NOT LIBSODIUM)
 	FIND_LIBRARY(LIBSODIUM NAMES sodium PATH_SUFFIXES lib64 lib
 	                  PATHS
 	                      ~/Library/Frameworks
@@ -47,7 +49,7 @@ IF(ENABLE_CURVE MATCHES "ON")
 	INCLUDE_DIRECTORIES("${LIBSODIUM_INCLUDE}")
 	LINK_DIRECTORIES("${LIBSODIUM_PATH}")
 	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_SODIUM")
-ENDIF(ENABLE_CURVE MATCHES "ON")
+ENDIF(ENABLE_CURVE MATCHES "ON" AND NOT LIBSODIUM)
 
 
 SET(LIBRDNSSRC			src/util.c
@@ -58,18 +60,20 @@ SET(LIBRDNSSRC			src/util.c
 						src/packet.c
 						src/resolver.c)
 
-INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/src" 
-					"${CMAKE_SOURCE_DIR}/include" 
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/src" 
+					"${CMAKE_CURRENT_SOURCE_DIR}/include" 
 					"${CMAKE_BINARY_DIR}/src"
 					"${CMAKE_BINARY_DIR}/include"  
-					"${CMAKE_SOURCE_DIR}/contrib/uthash"
-					"${CMAKE_SOURCE_DIR}/contrib/libottery")
+					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/uthash"
+					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/libottery")
 
-ADD_SUBDIRECTORY(contrib/libottery)
+IF(NOT SLAVE_BUILD)
+	ADD_SUBDIRECTORY(contrib/libottery)
+ENDIF(NOT SLAVE_BUILD)
 ADD_SUBDIRECTORY(test)
 
 ADD_LIBRARY(rdns STATIC ${LIBRDNSSRC})
-TARGET_LINK_LIBRARIES(rdns rdns-ottery)
+TARGET_LINK_LIBRARIES(rdns ottery)
 
 IF(ENABLE_CURVE MATCHES "ON")
 	TARGET_LINK_LIBRARIES(rdns sodium)

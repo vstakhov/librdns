@@ -4,4 +4,4 @@ SET(OTTERYSRC            chacha_merged.c
                          ottery_entropy.c
                          ottery_global.c)
 
-ADD_LIBRARY(rdns-ottery STATIC ${OTTERYSRC})
+ADD_LIBRARY(ottery STATIC ${OTTERYSRC})
