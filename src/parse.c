@@ -46,7 +46,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 	uint8_t *p, *c, *l1, *l2;
 	uint16_t len1, len2;
 	int decompressed = 0;
-	struct rdns_resolver *resolver;
+	struct rdns_resolver *resolver = req->resolver;
 
 	/* QR format:
 	 * labels - len:octets
