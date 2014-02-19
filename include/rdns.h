@@ -41,13 +41,13 @@ struct rdns_io_channel;
 typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 
 enum rdns_request_type {
-	DNS_REQUEST_A = 0,
-	DNS_REQUEST_PTR,
-	DNS_REQUEST_MX,
-	DNS_REQUEST_TXT,
-	DNS_REQUEST_SRV,
-	DNS_REQUEST_SPF,
-	DNS_REQUEST_AAA
+	DNS_REQUEST_A = 0x1,
+	DNS_REQUEST_PTR = 0x1 << 1,
+	DNS_REQUEST_MX = 0x1 << 2,
+	DNS_REQUEST_TXT = 0x1 << 3,
+	DNS_REQUEST_SRV = 0x1 << 4,
+	DNS_REQUEST_SPF = 0x1 << 5,
+	DNS_REQUEST_AAA = 0x1 << 6
 };
 
 union rdns_reply_element_un {
@@ -299,6 +299,21 @@ struct rdns_request* rdns_request_retain (struct rdns_request *req);
  * @param req
  */
 void rdns_request_release (struct rdns_request *req);
+
+/**
+ * Check whether a request contains `type` request
+ * @param req request object
+ * @param type check for a specified type
+ * @return true if `type` has been requested
+ */
+bool rdns_request_has_type (struct rdns_request *req, enum rdns_request_type type);
+
+/**
+ * Return requested name for a request
+ * @param req request object
+ * @return requested name as it was passed to `rdns_make_request`
+ */
+const char* rdns_request_get_name (struct rdns_request *req);
 
 /*
  * Private functions used by async libraries as callbacks

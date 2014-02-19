@@ -476,6 +476,8 @@ rdns_make_request_full (
 	req->func = cb;
 	req->arg = cbdata;
 	req->reply = NULL;
+	req->requested_name = name;
+	req->type = 0;
 #ifdef HAVE_SODIUM
 	req->curve_plugin_data = NULL;
 #endif
@@ -484,6 +486,7 @@ rdns_make_request_full (
 	va_start (args, queries);
 	for (i = 0; i < queries; i ++) {
 		type = va_arg (args, int);
+		req->type |= type;
 		switch (type) {
 		case DNS_REQUEST_PTR:
 			rdns_add_rr (req, name, DNS_T_PTR);

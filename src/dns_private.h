@@ -67,6 +67,7 @@ struct rdns_request {
 	struct rdns_async_context *async;
 	struct rdns_io_channel *io;
 	struct rdns_reply *reply;
+	enum rdns_request_type type;
 
 	double timeout;
 	unsigned int retransmits;

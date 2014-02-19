@@ -433,3 +433,15 @@ rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver, const char *pat
 	fclose (in);
 	return true;
 }
+
+bool
+rdns_request_has_type (struct rdns_request *req, enum rdns_request_type type)
+{
+	return ((req->type & type) != 0);
+}
+
+const char*
+rdns_request_get_name (struct rdns_request *req)
+{
+	return req->requested_name;
+}
