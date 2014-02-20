@@ -179,7 +179,7 @@ rdns_libevent_add_periodic (void *priv_data, double after,
 			cbdata->cb = cb;
 			cbdata->cbdata = user_data;
 			cbdata->ev = ev;
-			event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_timer_event, cbdata);
+			event_set (ev, -1, EV_TIMEOUT|EV_PERSIST, rdns_libevent_periodic_event, cbdata);
 			event_base_set (priv_data, ev);
 			event_add (ev, &tv);
 		}
