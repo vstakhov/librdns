@@ -232,6 +232,10 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 			else if (t == 1) {
 				DL_APPEND (rep->entries, elt);
 			}
+			else {
+				rdns_debug ("unknown reply");
+				free (elt);
+			}
 		}
 	}
 	
@@ -391,6 +395,7 @@ rdns_process_ioc_refresh (void *arg)
 					if (nioc->sock == -1) {
 						rdns_err ("cannot open socket to %s: %s", serv->name,
 								strerror (errno));
+						free (nioc);
 						continue;
 					}
 					nioc->srv = serv;
@@ -567,9 +572,15 @@ rdns_resolver_init (struct rdns_resolver *resolver)
 		serv->io_channels = calloc (serv->io_cnt, sizeof (struct rdns_io_channel *));
 		for (i = 0; i < serv->io_cnt; i ++) {
 			ioc = calloc (1, sizeof (struct rdns_io_channel));
+			if (ioc == NULL) {
+				rdns_err ("cannot allocate memory for the resolver");
+				return false;
+			}
 			ioc->sock = rdns_make_client_socket (serv->name, serv->port, SOCK_DGRAM);
 			ioc->active = true;
 			if (ioc->sock == -1) {
+				rdns_err ("cannot open socket to %s:%d %s", serv->name, serv->port, strerror (errno));
+				free (ioc);
 				return false;
 			}
 			else {

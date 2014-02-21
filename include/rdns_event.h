@@ -169,7 +169,7 @@ rdns_libevent_add_periodic (void *priv_data, double after,
 {
 	struct event *ev;
 	struct timeval tv;
-	struct rdns_event_periodic_cbdata *cbdata;
+	struct rdns_event_periodic_cbdata *cbdata = NULL;
 
 	ev = malloc (sizeof (struct event));
 	if (ev != NULL) {
