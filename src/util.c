@@ -265,18 +265,21 @@ rdns_reply_free (struct rdns_reply *rep)
 
 	LL_FOREACH_SAFE (rep->entries, entry, tmp) {
 		switch (entry->type) {
-		case DNS_T_PTR:
+		case DNS_REQUEST_PTR:
 			free (entry->content.ptr.name);
 			break;
-		case DNS_T_MX:
+		case DNS_REQUEST_MX:
 			free (entry->content.mx.name);
 			break;
-		case DNS_T_TXT:
-		case DNS_T_SPF:
+		case DNS_REQUEST_TXT:
+		case DNS_REQUEST_SPF:
 			free (entry->content.txt.data);
 			break;
-		case DNS_T_SRV:
+		case DNS_REQUEST_SRV:
 			free (entry->content.srv.target);
+			break;
+		case DNS_REQUEST_TLSA:
+			free (entry->content.tlsa.data);
 			break;
 		}
 		free (entry);
