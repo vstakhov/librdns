@@ -47,7 +47,8 @@ enum rdns_request_type {
 	DNS_REQUEST_TXT = 0x1 << 3,
 	DNS_REQUEST_SRV = 0x1 << 4,
 	DNS_REQUEST_SPF = 0x1 << 5,
-	DNS_REQUEST_AAA = 0x1 << 6
+	DNS_REQUEST_AAAA = 0x1 << 6,
+	DNS_REQUEST_TLSA = 0x1 << 7
 };
 
 union rdns_reply_element_un {
@@ -73,6 +74,13 @@ union rdns_reply_element_un {
 		uint16_t port;
 		char *target;
 	} srv;
+	struct {
+		uint8_t usage;
+		uint8_t selector;
+		uint8_t match_type;
+		uint16_t datalen;
+		uint8_t *data;
+	} tlsa;
 };
 
 struct rdns_reply_entry {

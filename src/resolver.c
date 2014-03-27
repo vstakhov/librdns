@@ -502,7 +502,7 @@ rdns_make_request_full (
 		case DNS_REQUEST_A:
 			rdns_add_rr (req, name, DNS_T_A);
 			break;
-		case DNS_REQUEST_AAA:
+		case DNS_REQUEST_AAAA:
 			rdns_add_rr (req, name, DNS_T_AAAA);
 			break;
 		case DNS_REQUEST_TXT:
@@ -513,6 +513,9 @@ rdns_make_request_full (
 			break;
 		case DNS_REQUEST_SRV:
 			rdns_add_rr (req, name, DNS_T_SRV);
+			break;
+		case DNS_REQUEST_TLSA:
+			rdns_add_rr (req, name, DNS_T_TLSA);
 			break;
 		}
 	}

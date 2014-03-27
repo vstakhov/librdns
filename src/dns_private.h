@@ -221,8 +221,8 @@ enum dns_type {
 	DNS_T_SRV = 33,
 	DNS_T_OPT = 41,
 	DNS_T_SSHFP = 44,
+	DNS_T_TLSA = 52,
 	DNS_T_SPF = 99,
-
 	DNS_T_ALL = 255
 };
 /* enum dns_type */
@@ -250,7 +250,7 @@ static const char dns_types[][16] = {
 	[DNS_REQUEST_TXT] = "TXT request",
 	[DNS_REQUEST_SRV] = "SRV request",
 	[DNS_REQUEST_SPF] = "SPF request",
-	[DNS_REQUEST_AAA] = "AAA request"
+	[DNS_REQUEST_AAAA] = "AAAA request"
 };
 
 

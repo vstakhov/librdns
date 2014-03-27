@@ -230,6 +230,7 @@ end:
 	return true;
 }
 
+#define GET8(x) do {(x) = ((*p)); p += sizeof (uint8_t); *remain -= sizeof (uint8_t); } while(0)
 #define GET16(x) do {(x) = ((*p) << 8) + *(p + 1); p += sizeof (uint16_t); *remain -= sizeof (uint16_t); } while(0)
 #define GET32(x) do {(x) = ((*p) << 24) + ((*(p + 1)) << 16) + ((*(p + 2)) << 8) + *(p + 3); p += sizeof (uint32_t); *remain -= sizeof (uint32_t); } while(0)
 #define SKIP(type) do { p += sizeof(type); *remain -= sizeof(type); } while (0)
@@ -278,7 +279,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			p += datalen;
 			*remain -= datalen;
 			parsed = true;
-			elt->type = DNS_REQUEST_AAA;
+			elt->type = DNS_REQUEST_AAAA;
 		}
 		else {
 			rdns_info ("corrupted AAAA record");
@@ -342,6 +343,21 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		}
 		parsed = true;
 		elt->type = DNS_REQUEST_SRV;
+		break;
+	case DNS_T_TLSA:
+		if (p - *pos > (int)(*remain - sizeof (uint8_t) * 3)) {
+			rdns_info ("stripped dns reply while reading TLSA record");
+			return -1;
+		}
+		GET8 (elt->content.tlsa.usage);
+		GET8 (elt->content.tlsa.selector);
+		GET8 (elt->content.tlsa.match_type);
+		datalen -= 3;
+		elt->content.tlsa.data = malloc (datalen);
+		elt->content.tlsa.datalen = datalen;
+		memcpy (elt->content.tlsa.data, p, datalen);
+		parsed = true;
+		elt->type = DNS_REQUEST_TLSA;
 		break;
 	case DNS_T_CNAME:
 		/* Skip cname records */
