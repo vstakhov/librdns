@@ -266,7 +266,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			p += datalen;
 			*remain -= datalen;
 			parsed = true;
-			elt->type = DNS_REQUEST_A;
+			elt->type = RDNS_REQUEST_A;
 		}
 		else {
 			rdns_info ("corrupted A record");
@@ -279,7 +279,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			p += datalen;
 			*remain -= datalen;
 			parsed = true;
-			elt->type = DNS_REQUEST_AAAA;
+			elt->type = RDNS_REQUEST_AAAA;
 		}
 		else {
 			rdns_info ("corrupted AAAA record");
@@ -293,7 +293,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			return -1;
 		}
 		parsed = true;
-		elt->type = DNS_REQUEST_PTR;
+		elt->type = RDNS_REQUEST_PTR;
 		break;
 	case DNS_T_MX:
 		GET16 (elt->content.mx.priority);
@@ -303,7 +303,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			return -1;
 		}
 		parsed = true;
-		elt->type = DNS_REQUEST_MX;
+		elt->type = RDNS_REQUEST_MX;
 		break;
 	case DNS_T_TXT:
 	case DNS_T_SPF:
@@ -326,7 +326,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		}
 		*(elt->content.txt.data + copied) = '\0';
 		parsed = true;
-		elt->type = DNS_REQUEST_TXT;
+		elt->type = RDNS_REQUEST_TXT;
 		break;
 	case DNS_T_SRV:
 		if (p - *pos > (int)(*remain - sizeof (uint16_t) * 3)) {
@@ -342,7 +342,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 			return -1;
 		}
 		parsed = true;
-		elt->type = DNS_REQUEST_SRV;
+		elt->type = RDNS_REQUEST_SRV;
 		break;
 	case DNS_T_TLSA:
 		if (p - *pos > (int)(*remain - sizeof (uint8_t) * 3)) {
@@ -357,7 +357,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		elt->content.tlsa.datalen = datalen;
 		memcpy (elt->content.tlsa.data, p, datalen);
 		parsed = true;
-		elt->type = DNS_REQUEST_TLSA;
+		elt->type = RDNS_REQUEST_TLSA;
 		break;
 	case DNS_T_CNAME:
 		/* Skip cname records */

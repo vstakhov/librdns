@@ -218,7 +218,7 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 		return false;
 	}
 
-	if (rep->code == DNS_RC_NOERROR) {
+	if (rep->code == RDNS_RC_NOERROR) {
 		r -= pos - in;
 		/* Extract RR records */
 		for (i = 0; i < ntohs (header->ancount); i ++) {
@@ -310,7 +310,7 @@ rdns_process_timer (void *arg)
 
 	if (req->retransmits == 0) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
-		rep = rdns_make_reply (req, DNS_RC_TIMEOUT);
+		rep = rdns_make_reply (req, RDNS_RC_TIMEOUT);
 		req->state = RDNS_REQUEST_REPLIED;
 		rdns_request_unschedule (req);
 		req->func (rep, req->arg);
@@ -329,7 +329,7 @@ rdns_process_timer (void *arg)
 
 		if (serv == NULL) {
 			rdns_warn ("cannot find suitable server for request");
-			rep = rdns_make_reply (req, DNS_RC_SERVFAIL);
+			rep = rdns_make_reply (req, RDNS_RC_SERVFAIL);
 			req->state = RDNS_REQUEST_REPLIED;
 			req->func (rep, req->arg);
 			REF_RELEASE (req);
@@ -352,7 +352,7 @@ rdns_process_timer (void *arg)
 	}
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
-		rep = rdns_make_reply (req, DNS_RC_NETERR);
+		rep = rdns_make_reply (req, RDNS_RC_NETERR);
 		req->state = RDNS_REQUEST_REPLIED;
 		rdns_request_unschedule (req);
 		req->func (rep, req->arg);
@@ -438,7 +438,7 @@ rdns_process_retransmit (int fd, void *arg)
 	}
 	else if (r == -1) {
 		UPSTREAM_FAIL (req->io->srv, time (NULL));
-		rep = rdns_make_reply (req, DNS_RC_NETERR);
+		rep = rdns_make_reply (req, RDNS_RC_NETERR);
 		req->state = RDNS_REQUEST_REPLIED;
 		req->func (rep, req->arg);
 		REF_RELEASE (req);

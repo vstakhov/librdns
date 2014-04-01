@@ -228,29 +228,29 @@ enum dns_type {
 /* enum dns_type */
 
 static const char dns_rcodes[][16] = {
-	[DNS_RC_NOERROR]  = "NOERROR",
-	[DNS_RC_FORMERR]  = "FORMERR",
-	[DNS_RC_SERVFAIL] = "SERVFAIL",
-	[DNS_RC_NXDOMAIN] = "NXDOMAIN",
-	[DNS_RC_NOTIMP]   = "NOTIMP",
-	[DNS_RC_REFUSED]  = "REFUSED",
-	[DNS_RC_YXDOMAIN] = "YXDOMAIN",
-	[DNS_RC_YXRRSET]  = "YXRRSET",
-	[DNS_RC_NXRRSET]  = "NXRRSET",
-	[DNS_RC_NOTAUTH]  = "NOTAUTH",
-	[DNS_RC_NOTZONE]  = "NOTZONE",
-	[DNS_RC_TIMEOUT]  = "TIMEOUT",
-	[DNS_RC_NETERR]  = "NETERR",
+	[RDNS_RC_NOERROR]  = "NOERROR",
+	[RDNS_RC_FORMERR]  = "FORMERR",
+	[RDNS_RC_SERVFAIL] = "SERVFAIL",
+	[RDNS_RC_NXDOMAIN] = "NXDOMAIN",
+	[RDNS_RC_NOTIMP]   = "NOTIMP",
+	[RDNS_RC_REFUSED]  = "REFUSED",
+	[RDNS_RC_YXDOMAIN] = "YXDOMAIN",
+	[RDNS_RC_YXRRSET]  = "YXRRSET",
+	[RDNS_RC_NXRRSET]  = "NXRRSET",
+	[RDNS_RC_NOTAUTH]  = "NOTAUTH",
+	[RDNS_RC_NOTZONE]  = "NOTZONE",
+	[RDNS_RC_TIMEOUT]  = "TIMEOUT",
+	[RDNS_RC_NETERR]  = "NETERR",
 };
 
 static const char dns_types[][16] = {
-	[DNS_REQUEST_A] = "A request",
-	[DNS_REQUEST_PTR] = "PTR request",
-	[DNS_REQUEST_MX] = "MX request",
-	[DNS_REQUEST_TXT] = "TXT request",
-	[DNS_REQUEST_SRV] = "SRV request",
-	[DNS_REQUEST_SPF] = "SPF request",
-	[DNS_REQUEST_AAAA] = "AAAA request"
+	[RDNS_REQUEST_A] = "A request",
+	[RDNS_REQUEST_PTR] = "PTR request",
+	[RDNS_REQUEST_MX] = "MX request",
+	[RDNS_REQUEST_TXT] = "TXT request",
+	[RDNS_REQUEST_SRV] = "SRV request",
+	[RDNS_REQUEST_SPF] = "SPF request",
+	[RDNS_REQUEST_AAAA] = "AAAA request"
 };
 
 
