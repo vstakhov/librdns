@@ -92,25 +92,26 @@ struct rdns_reply_entry {
 
 
 enum dns_rcode {
-	DNS_RC_NOERROR	= 0,
-	DNS_RC_FORMERR	= 1,
-	DNS_RC_SERVFAIL	= 2,
-	DNS_RC_NXDOMAIN	= 3,
-	DNS_RC_NOTIMP	= 4,
-	DNS_RC_REFUSED	= 5,
-	DNS_RC_YXDOMAIN	= 6,
-	DNS_RC_YXRRSET	= 7,
-	DNS_RC_NXRRSET	= 8,
-	DNS_RC_NOTAUTH	= 9,
-	DNS_RC_NOTZONE	= 10,
-	DNS_RC_TIMEOUT = 11,
-	DNS_RC_NETERR = 12
+	RDNS_RC_NOERROR	= 0,
+	RDNS_RC_FORMERR	= 1,
+	RDNS_RC_SERVFAIL	= 2,
+	RDNS_RC_NXDOMAIN	= 3,
+	RDNS_RC_NOTIMP	= 4,
+	RDNS_RC_REFUSED	= 5,
+	RDNS_RC_YXDOMAIN	= 6,
+	RDNS_RC_YXRRSET	= 7,
+	RDNS_RC_NXRRSET	= 8,
+	RDNS_RC_NOTAUTH	= 9,
+	RDNS_RC_NOTZONE	= 10,
+	RDNS_RC_TIMEOUT = 11,
+	RDNS_RC_NETERR = 12
 };
 	
 struct rdns_reply {
 	struct rdns_request *request;
 	struct rdns_resolver *resolver;
 	struct rdns_reply_entry *entries;
+	const char *requested_name;
 	enum dns_rcode code;
 };
 
@@ -280,7 +281,6 @@ struct rdns_request* rdns_make_request_full (
 		void *cbdata,
 		double timeout,
 		unsigned int repeats,
-		const char *name,
 		unsigned int queries,
 		...
 		);

@@ -38,7 +38,7 @@ void rdns_allocate_packet (struct rdns_request* req, unsigned int namelen);
  * Add basic header to the dns packet
  * @param req
  */
-void rdns_make_dns_header (struct rdns_request *req);
+void rdns_make_dns_header (struct rdns_request *req, unsigned int qcount);
 
 
 /**

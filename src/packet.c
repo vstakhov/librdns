@@ -39,7 +39,7 @@ rdns_allocate_packet (struct rdns_request* req, unsigned int namelen)
 
 
 void
-rdns_make_dns_header (struct rdns_request *req)
+rdns_make_dns_header (struct rdns_request *req, unsigned int qcount)
 {
 	struct dns_header *header;
 
@@ -48,7 +48,7 @@ rdns_make_dns_header (struct rdns_request *req)
 	memset (header, 0 , sizeof (struct dns_header));
 	header->qid = rdns_permutor_generate_id ();
 	header->rd = 1;
-	header->qdcount = htons (1);
+	header->qdcount = htons (qcount);
 	header->arcount = htons (1);
 	req->pos += sizeof (struct dns_header);
 	req->id = header->qid;
@@ -182,8 +182,6 @@ rdns_add_rr (struct rdns_request *req, const char *name, enum dns_type type)
 	uint16_t *p;
 	int len = strlen (name);
 
-	rdns_allocate_packet (req, len);
-	rdns_make_dns_header (req);
 	rdns_format_dns_name (req, name, len);
 	p = (uint16_t *)(req->packet + req->pos);
 	*p++ = htons (type);

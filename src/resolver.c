@@ -457,7 +457,6 @@ rdns_make_request_full (
 		void *cbdata,
 		double timeout,
 		unsigned int repeats,
-		const char *name,
 		unsigned int queries,
 		...
 		)
@@ -466,7 +465,8 @@ rdns_make_request_full (
 	struct rdns_request *req;
 	struct rdns_server *serv;
 	int r, type;
-	unsigned int i;
+	unsigned int i, tlen = 0, clen = 0, cur;
+	const char *cur_name, *last_name = NULL;
 
 	if (!resolver->initialized) {
 		return NULL;
@@ -481,45 +481,85 @@ rdns_make_request_full (
 	req->func = cb;
 	req->arg = cbdata;
 	req->reply = NULL;
-	req->requested_name = name;
+	req->qcount = queries;
+	req->requested_names = malloc (queries * sizeof (struct _rdns_request_name));
+	if (req->requested_names == NULL) {
+		free (req);
+		return NULL;
+	}
+
 	req->type = 0;
 #ifdef HAVE_SODIUM
 	req->curve_plugin_data = NULL;
 #endif
 	REF_INIT_RETAIN (req, rdns_request_free);
 	
+	/* Calculate packet's total length based on records count */
 	va_start (args, queries);
-	for (i = 0; i < queries; i ++) {
+	for (i = 0; i < queries * 2; i += 2) {
+		cur = i / 2;
+		cur_name = va_arg (args, const char *);
+		if (cur_name != NULL) {
+			last_name = cur_name;
+			clen = strlen (cur_name);
+			if (clen == 0) {
+				rdns_info ("got empty name to resolve");
+				rdns_request_free (req);
+				return NULL;
+			}
+			tlen += clen;
+		}
+		else if (last_name == NULL) {
+			rdns_info ("got NULL as the first name to resolve");
+			rdns_request_free (req);
+			return NULL;
+		}
+
+		req->requested_names[cur].name = malloc (clen + 1);
+		if (req->requested_names[cur].name == NULL) {
+			rdns_request_free (req);
+			return NULL;
+		}
+		memcpy (req->requested_names[cur].name, last_name, clen);
+		req->requested_names[cur].name[clen] = '\0';
 		type = va_arg (args, int);
-		req->type |= type;
-		switch (type) {
-		case DNS_REQUEST_PTR:
-			rdns_add_rr (req, name, DNS_T_PTR);
+		req->requested_names[cur].type = type;
+		req->requested_names[cur].len = clen;
+	}
+	va_end (args);
+
+	rdns_allocate_packet (req, tlen);
+	rdns_make_dns_header (req, queries);
+
+	for (i = 0; i < queries; i ++) {
+		cur_name = req->requested_names[i].name;
+		switch (req->requested_names[i].type) {
+		case RDNS_REQUEST_PTR:
+			rdns_add_rr (req, cur_name, DNS_T_PTR);
 			break;
-		case DNS_REQUEST_MX:
-			rdns_add_rr (req, name, DNS_T_MX);
+		case RDNS_REQUEST_MX:
+			rdns_add_rr (req, cur_name, DNS_T_MX);
 			break;
-		case DNS_REQUEST_A:
-			rdns_add_rr (req, name, DNS_T_A);
+		case RDNS_REQUEST_A:
+			rdns_add_rr (req, cur_name, DNS_T_A);
 			break;
-		case DNS_REQUEST_AAAA:
-			rdns_add_rr (req, name, DNS_T_AAAA);
+		case RDNS_REQUEST_AAAA:
+			rdns_add_rr (req, cur_name, DNS_T_AAAA);
 			break;
-		case DNS_REQUEST_TXT:
-			rdns_add_rr (req, name, DNS_T_TXT);
+		case RDNS_REQUEST_TXT:
+			rdns_add_rr (req, cur_name, DNS_T_TXT);
 			break;
-		case DNS_REQUEST_SPF:
-			rdns_add_rr (req, name, DNS_T_SPF);
+		case RDNS_REQUEST_SPF:
+			rdns_add_rr (req, cur_name, DNS_T_SPF);
 			break;
-		case DNS_REQUEST_SRV:
-			rdns_add_rr (req, name, DNS_T_SRV);
+		case RDNS_REQUEST_SRV:
+			rdns_add_rr (req, cur_name, DNS_T_SRV);
 			break;
-		case DNS_REQUEST_TLSA:
-			rdns_add_rr (req, name, DNS_T_TLSA);
+		case RDNS_REQUEST_TLSA:
+			rdns_add_rr (req, cur_name, DNS_T_TLSA);
 			break;
 		}
 	}
-	va_end (args);
 
 	/* Add EDNS RR */
 	rdns_add_edns0 (req);

@@ -290,9 +290,17 @@ rdns_reply_free (struct rdns_reply *rep)
 void
 rdns_request_free (struct rdns_request *req)
 {
+	unsigned int i;
+
 	if (req != NULL) {
 		if (req->packet != NULL) {
 			free (req->packet);
+		}
+		for (i = 0; i < req->qcount; i ++) {
+			free (req->requested_names[i].name);
+		}
+		if (req->requested_names != NULL) {
+			free (req->requested_names);
 		}
 		if (req->reply != NULL) {
 			rdns_reply_free (req->reply);
@@ -446,7 +454,7 @@ rdns_request_has_type (struct rdns_request *req, enum rdns_request_type type)
 const char*
 rdns_request_get_name (struct rdns_request *req)
 {
-	return req->requested_name;
+	return NULL;
 }
 
 char *

@@ -73,7 +73,12 @@ struct rdns_request {
 	unsigned int retransmits;
 
 	int id;
-	const char *requested_name;
+	struct _rdns_request_name {
+		char *name;
+		enum rdns_request_type type;
+		unsigned int len;
+	} *requested_names;
+	unsigned int qcount;
 
 	enum {
 		RDNS_REQUEST_NEW = 0,
