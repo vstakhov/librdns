@@ -35,17 +35,23 @@ static void
 rdns_regress_callback (struct rdns_reply *reply, void *arg)
 {
 	struct rdns_reply_entry *entry;
+	char out[INET6_ADDRSTRLEN + 1];
 
 	printf ("got result for host: %s, code: %s\n", (const char *)arg,
 			rdns_strerror (reply->code));
 
-	if (reply->code == DNS_RC_NOERROR) {
+	if (reply->code == RDNS_RC_NOERROR) {
 		entry = reply->entries;
 		while (entry != NULL) {
-			if (entry->type == DNS_REQUEST_A) {
-				printf ("%s is %s\n", (char *)arg, inet_ntoa (entry->content.a.addr));
+			if (entry->type == RDNS_REQUEST_A) {
+				inet_ntop (AF_INET, &entry->content.a.addr, out, sizeof (out));
+				printf ("%s has A record %s\n", (char *)arg, out);
 			}
-			else if (entry->type == DNS_REQUEST_TLSA) {
+			else if (entry->type == RDNS_REQUEST_AAAA) {
+				inet_ntop (AF_INET6, &entry->content.aaa.addr, out, sizeof (out));
+				printf ("%s has AAAA record %s\n", (char *)arg, out);
+			}
+			else if (entry->type == RDNS_REQUEST_TLSA) {
 				char *hex, *p;
 				unsigned i;
 
@@ -89,7 +95,8 @@ rdns_test_a (struct rdns_resolver *resolver)
 	const char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, *cur, 1, DNS_REQUEST_A);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 2,
+				*cur, RDNS_REQUEST_AAAA, *cur, RDNS_REQUEST_A);
 		remain_tests ++;
 	}
 }
@@ -105,7 +112,7 @@ rdns_test_tlsa (struct rdns_resolver *resolver)
 	const char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, *cur, 1, DNS_REQUEST_TLSA);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1, *cur, RDNS_REQUEST_TLSA);
 		remain_tests ++;
 	}
 }
