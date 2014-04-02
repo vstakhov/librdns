@@ -522,10 +522,19 @@ rdns_make_request_full (
 			type = DNS_T_TLSA;
 			break;
 		}
-		if (!rdns_add_rr (req, cur_name, clen, type, &comp)) {
-			REF_RELEASE (req);
-			rnds_compression_free (comp);
-			return NULL;
+		if (queries > 1) {
+			if (!rdns_add_rr (req, cur_name, clen, type, &comp)) {
+				REF_RELEASE (req);
+				rnds_compression_free (comp);
+				return NULL;
+			}
+		}
+		else {
+			if (!rdns_add_rr (req, cur_name, clen, type, NULL)) {
+				REF_RELEASE (req);
+				rnds_compression_free (comp);
+				return NULL;
+			}
 		}
 	}
 

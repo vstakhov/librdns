@@ -88,9 +88,13 @@ rdns_write_name_compressed (struct rdns_request *req,
 	uint8_t *target = req->packet + req->pos;
 	const char *pos = name, *end = name + namelen;
 	unsigned int remain = req->packet_len - req->pos - 5, label_len;
-	struct rdns_compression_entry *head = *comp, *test;
+	struct rdns_compression_entry *head = NULL, *test;
 	struct rdns_resolver *resolver = req->resolver;
 	uint16_t pointer;
+
+	if (comp != NULL) {
+		head = *comp;
+	}
 
 	while (pos < end && remain > 0) {
 		if (head != NULL) {
@@ -132,7 +136,9 @@ rdns_write_name_compressed (struct rdns_request *req,
 			label_len = remain - 1;
 		}
 
-		rdns_add_compressed (pos, end, comp, target - req->packet);
+		if (comp != NULL) {
+			rdns_add_compressed (pos, end, comp, target - req->packet);
+		}
 		/* Write label as is */
 		*target++ = (uint8_t)label_len;
 		memcpy (target, pos, label_len);
