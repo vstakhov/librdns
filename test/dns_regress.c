@@ -95,8 +95,8 @@ rdns_test_a (struct rdns_resolver *resolver)
 	const char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 2,
-				*cur, RDNS_REQUEST_AAAA, *cur, RDNS_REQUEST_A);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
+				*cur, RDNS_REQUEST_AAAA);
 		remain_tests ++;
 	}
 }
