@@ -54,6 +54,7 @@ ENDIF(ENABLE_CURVE MATCHES "ON" AND NOT LIBSODIUM)
 
 SET(LIBRDNSSRC			src/util.c
 						src/logger.c
+						src/compression.c
 						src/punycode.c
 						src/curve.c
 						src/parse.c
