@@ -22,6 +22,7 @@
  */
 
 #include "compression.h"
+#include "logger.h"
 
 static struct rdns_compression_entry *
 rdns_can_compress (const char *pos, struct rdns_compression_entry *comp)
@@ -44,6 +45,7 @@ rdns_calculate_label_len (const char *pos, const char *end)
 			break;
 		}
 		res ++;
+		p ++;
 	}
 	return res;
 }
@@ -91,7 +93,7 @@ rdns_write_name_compressed (struct rdns_request *req,
 	uint16_t pointer;
 
 	while (pos < end && remain > 0) {
-		if (head == NULL) {
+		if (head != NULL) {
 			test = rdns_can_compress (pos, head);
 			if (test != NULL) {
 				if (remain < 2) {
@@ -99,7 +101,7 @@ rdns_write_name_compressed (struct rdns_request *req,
 					return false;
 				}
 
-				pointer = htons ((uint16_t)test->offset | DNS_COMPRESSION_BITS);
+				pointer = htons ((uint16_t)test->offset) | DNS_COMPRESSION_BITS;
 				memcpy (target, &pointer, sizeof (pointer));
 				req->pos += 2;
 
