@@ -27,6 +27,7 @@
 #include "packet.h"
 #include "util.h"
 #include "logger.h"
+#include "compression.h"
 
 void
 rdns_allocate_packet (struct rdns_request* req, unsigned int namelen)
@@ -176,20 +177,24 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 	req->pos += pos - (req->packet + req->pos) + 1;
 }
 
-void
-rdns_add_rr (struct rdns_request *req, const char *name, enum dns_type type)
+bool
+rdns_add_rr (struct rdns_request *req, const char *name, unsigned int len,
+		enum dns_type type, struct rdns_compression_entry **comp)
 {
 	uint16_t *p;
-	int len = strlen (name);
 
-	rdns_format_dns_name (req, name, len);
+	if (!rdns_write_name_compressed (req, name, len, comp)) {
+		return false;
+	}
 	p = (uint16_t *)(req->packet + req->pos);
 	*p++ = htons (type);
 	*p = htons (DNS_C_IN);
 	req->pos += sizeof (uint16_t) * 2;
+
+	return true;
 }
 
-void
+bool
 rdns_add_edns0 (struct rdns_request *req)
 {
 	uint8_t *p8;
@@ -208,4 +213,6 @@ rdns_add_edns0 (struct rdns_request *req)
 	/* Length */
 	*p16 = 0;
 	req->pos += sizeof (uint8_t) + sizeof (uint16_t) * 5;
+
+	return true;
 }

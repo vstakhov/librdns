@@ -138,6 +138,8 @@ rdns_write_name_compressed (struct rdns_request *req,
 		pos += label_len + 1;
 	}
 
+	/* Termination label */
+	*target++ = '\0';
 	req->pos = target - req->packet;
 
 	return true;

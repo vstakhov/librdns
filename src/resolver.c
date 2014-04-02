@@ -39,6 +39,7 @@
 #include "packet.h"
 #include "parse.h"
 #include "logger.h"
+#include "compression.h"
 
 static int
 rdns_send_request (struct rdns_request *req, int fd, bool new_req)
@@ -427,6 +428,7 @@ rdns_make_request_full (
 	int r, type;
 	unsigned int i, tlen = 0, clen = 0, cur;
 	const char *cur_name, *last_name = NULL;
+	struct rdns_compression_entry *comp = NULL;
 
 	if (!resolver->initialized) {
 		return NULL;
@@ -493,33 +495,41 @@ rdns_make_request_full (
 
 	for (i = 0; i < queries; i ++) {
 		cur_name = req->requested_names[i].name;
+		clen = req->requested_names[i].len;
 		switch (req->requested_names[i].type) {
 		case RDNS_REQUEST_PTR:
-			rdns_add_rr (req, cur_name, DNS_T_PTR);
+			type = DNS_T_PTR;
 			break;
 		case RDNS_REQUEST_MX:
-			rdns_add_rr (req, cur_name, DNS_T_MX);
+			type = DNS_T_MX;
 			break;
 		case RDNS_REQUEST_A:
-			rdns_add_rr (req, cur_name, DNS_T_A);
+			type = DNS_T_A;
 			break;
 		case RDNS_REQUEST_AAAA:
-			rdns_add_rr (req, cur_name, DNS_T_AAAA);
+			type = DNS_T_AAAA;
 			break;
 		case RDNS_REQUEST_TXT:
-			rdns_add_rr (req, cur_name, DNS_T_TXT);
+			type = DNS_T_TXT;
 			break;
 		case RDNS_REQUEST_SPF:
-			rdns_add_rr (req, cur_name, DNS_T_SPF);
+			type = DNS_T_SPF;
 			break;
 		case RDNS_REQUEST_SRV:
-			rdns_add_rr (req, cur_name, DNS_T_SRV);
+			type = DNS_T_SRV;
 			break;
 		case RDNS_REQUEST_TLSA:
-			rdns_add_rr (req, cur_name, DNS_T_TLSA);
+			type = DNS_T_TLSA;
 			break;
 		}
+		if (!rdns_add_rr (req, cur_name, clen, type, &comp)) {
+			REF_RELEASE (req);
+			rnds_compression_free (comp);
+			return NULL;
+		}
 	}
+
+	rnds_compression_free (comp);
 
 	/* Add EDNS RR */
 	rdns_add_edns0 (req);

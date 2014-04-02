@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include "dns_private.h"
 
+struct rdns_compression_entry;
+
 /**
  * Allocate dns packet suitable to handle up to `namelen` name
  * @param req request
@@ -55,12 +57,13 @@ void rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned 
  * @param name requested name
  * @param type type of resource record
  */
-void rdns_add_rr (struct rdns_request *req, const char *name, enum dns_type type);
+bool rdns_add_rr (struct rdns_request *req, const char *name, unsigned int len,
+		enum dns_type type, struct rdns_compression_entry **comp);
 
 /**
  * Add EDNS0 section
  * @param req
  */
-void rdns_add_edns0 (struct rdns_request *req);
+bool rdns_add_edns0 (struct rdns_request *req);
 
 #endif /* PACKET_H_ */
