@@ -40,46 +40,6 @@
 #include "parse.h"
 #include "logger.h"
 
-
-#if 0
-struct dns_request_key {
-	uint16_t id;
-	uint16_t port;
-};
-/** Message compression (waste of resources in case of request) */
-struct dns_name_table {
-	uint8_t off;
-	uint8_t *label;
-	uint8_t len;
-	UT_hash_handle hh;
-};
-
-static bool
-try_compress_label (memory_pool_t *pool, uint8_t *target, uint8_t *start, uint8_t len,
-		uint8_t *label, struct dns_name_table **table)
-{
-	struct dns_name_table *found = NULL;
-	uint16_t pointer;
-
-	HASH_FIND (hh, *table, label, len, found);
-	if (found != NULL) {
-		pointer = htons ((uint16_t)found->off | 0xC0);
-		memcpy (target, &pointer, sizeof (pointer));
-		return true;
-	}
-	else {
-		/* Insert label to list */
-		found = memory_pool_alloc (pool, sizeof (struct dns_name_table));
-		found->off = target - start;
-		found->label = label;
-		found->len = len;
-		HASH_ADD_KEYPTR (hh, *table, found->label, len, found);
-	}
-
-	return false;
-}
-#endif
-
 static int
 rdns_send_request (struct rdns_request *req, int fd, bool new_req)
 {
