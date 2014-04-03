@@ -85,18 +85,18 @@ static void
 rdns_test_a (struct rdns_resolver *resolver)
 {
 	const char *names[] = {
-			"google.com",
-			"github.com",
+			//"google.com",
+			//"github.com",
 			"freebsd.org",
-			"kernel.org",
-			"www.ник.рф",
+			//"kernel.org",
+			//"www.ник.рф",
 			NULL
 	};
 	const char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
-				*cur, RDNS_REQUEST_AAAA);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 2,
+				*cur, RDNS_REQUEST_AAAA, *cur, RDNS_REQUEST_A);
 		remain_tests ++;
 	}
 }
@@ -137,8 +137,8 @@ main (int argc, char **argv)
 	rdns_bind_libevent (resolver_event, base);
 	rdns_resolver_set_log_level (resolver_event, RDNS_LOG_DEBUG);
 	/* Google and opendns */
-	assert (rdns_resolver_add_server (resolver_event, "208.67.222.222", 53, 0, 8));
-	assert (rdns_resolver_add_server (resolver_event, "8.8.8.8", 53, 0, 1));
+	assert (rdns_resolver_add_server (resolver_event, "127.0.0.1", 53, 0, 8));
+	//assert (rdns_resolver_add_server (resolver_event, "8.8.8.8", 53, 0, 1));
 
 	assert (rdns_resolver_init (resolver_ev));
 	assert (rdns_resolver_init (resolver_event));

@@ -57,7 +57,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 
 	/* In p we would store current position in reply and in c - position in request */
 	p = in;
-	c = req->packet + sizeof (struct dns_header);
+	c = req->packet + req->pos;
 
 	for (;;) {
 		/* Get current label */
@@ -83,8 +83,8 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 			p += len1;
 		}
 		if (len2 & DNS_COMPRESSION_BITS) {
-			len2 = UNCOMPRESS_DNS_OFFSET(p);
-			l2 = rdns_decompress_label (req->packet, &len2, len);
+			len2 = UNCOMPRESS_DNS_OFFSET(c);
+			l2 = rdns_decompress_label (c, &len2, len);
 			if (l2 == NULL) {
 				rdns_info ("invalid DNS pointer, cannot decompress");
 				return NULL;
@@ -115,6 +115,7 @@ rdns_request_reply_cmp (struct rdns_request *req, uint8_t *in, int len)
 	/* p now points to the end of QR section */
 	/* Compare class and type */
 	if (memcmp (p, c, sizeof (uint16_t) * 2) == 0) {
+		req->pos = c - req->packet + sizeof (uint16_t) * 2;
 		return p + sizeof (uint16_t) * 2;
 	}
 	return NULL;

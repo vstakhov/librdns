@@ -149,8 +149,9 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	struct dns_header *header = (struct dns_header *)in;
 	struct rdns_reply *rep;
 	struct rdns_reply_entry *elt;
-	uint8_t *pos;
+	uint8_t *pos, *npos;
 	struct rdns_resolver *resolver = req->resolver;
+	uint16_t qdcount;
 
 	int i, t;
 
@@ -160,14 +161,27 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 		return false;
 	}
 
+	qdcount = ntohs (header->qdcount);
+
+	if (qdcount != req->qcount) {
+		rdns_info ("request has %d queries, reply has %d queries", (int)req->qcount, (int)header->qdcount);
+		return false;
+	}
+
 	/* 
 	 * Now we have request and query data is now at the end of header, so compare
 	 * request QR section and reply QR section
 	 */
-	if ((pos = rdns_request_reply_cmp (req, in + sizeof (struct dns_header),
-			r - sizeof (struct dns_header))) == NULL) {
-		rdns_info ("DNS request with id %d is for different query, ignoring", (int)req->id);
-		return false;
+	req->pos = sizeof (struct dns_header);
+	pos = in + sizeof (struct dns_header);
+	t = r - sizeof (struct dns_header);
+	for (i = 0; i < (int)qdcount; i ++) {
+		if ((npos = rdns_request_reply_cmp (req, pos,t)) == NULL) {
+			rdns_info ("DNS request with id %d is for different query, ignoring", (int)req->id);
+			return false;
+		}
+		t -= npos - pos;
+		pos = npos;
 	}
 	/*
 	 * Now pos is in answer section, so we should extract data and form reply
