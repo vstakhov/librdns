@@ -448,13 +448,21 @@ rdns_resolver_parse_resolv_conf (struct rdns_resolver *resolver, const char *pat
 bool
 rdns_request_has_type (struct rdns_request *req, enum rdns_request_type type)
 {
-	return ((req->type & type) != 0);
+	unsigned int i;
+
+	for (i = 0; i < req->qcount; i ++) {
+		if (req->requested_names[i].type == type) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 const char*
 rdns_request_get_name (struct rdns_request *req)
 {
-	return NULL;
+	return req->requested_names[0].name;
 }
 
 char *
