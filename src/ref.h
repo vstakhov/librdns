@@ -51,7 +51,7 @@ typedef struct ref_entry_s {
 } while (0)
 
 #define REF_RELEASE(obj) do {										\
-	unsigned int rc = __sync_sub_and_fetch (&(obj)->ref.refcount, 1) \
+	unsigned int rc = __sync_sub_and_fetch (&(obj)->ref.refcount, 1); \
 	if (rc == 0 && (obj)->ref.dtor) {								\
 		(obj)->ref.dtor (obj);										\
 	}																\
