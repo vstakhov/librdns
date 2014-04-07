@@ -41,14 +41,15 @@ struct rdns_io_channel;
 typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 
 enum rdns_request_type {
-	RDNS_REQUEST_A = 0x1,
-	RDNS_REQUEST_PTR = 0x1 << 1,
-	RDNS_REQUEST_MX = 0x1 << 2,
-	RDNS_REQUEST_TXT = 0x1 << 3,
-	RDNS_REQUEST_SRV = 0x1 << 4,
-	RDNS_REQUEST_SPF = 0x1 << 5,
-	RDNS_REQUEST_AAAA = 0x1 << 6,
-	RDNS_REQUEST_TLSA = 0x1 << 7
+	RDNS_REQUEST_A = 1,
+	RDNS_REQUEST_PTR = 12,
+	RDNS_REQUEST_MX = 15,
+	RDNS_REQUEST_TXT = 16,
+	RDNS_REQUEST_SRV = 33,
+	RDNS_REQUEST_SPF = 99,
+	RDNS_REQUEST_AAAA = 28,
+	RDNS_REQUEST_TLSA = 52,
+	RDNS_REQUEST_ANY = 255
 };
 
 union rdns_reply_element_un {

@@ -215,20 +215,20 @@ struct dns_query {
 };
 
 enum dns_type {
-	DNS_T_A = 1,
+	DNS_T_A = RDNS_REQUEST_A,
 	DNS_T_NS = 2,
 	DNS_T_CNAME = 5,
 	DNS_T_SOA = 6,
-	DNS_T_PTR = 12,
-	DNS_T_MX = 15,
-	DNS_T_TXT = 16,
-	DNS_T_AAAA = 28,
-	DNS_T_SRV = 33,
+	DNS_T_PTR = RDNS_REQUEST_PTR,
+	DNS_T_MX = RDNS_REQUEST_MX,
+	DNS_T_TXT = RDNS_REQUEST_TXT,
+	DNS_T_AAAA = RDNS_REQUEST_AAAA,
+	DNS_T_SRV = RDNS_REQUEST_SRV,
 	DNS_T_OPT = 41,
 	DNS_T_SSHFP = 44,
-	DNS_T_TLSA = 52,
-	DNS_T_SPF = 99,
-	DNS_T_ALL = 255
+	DNS_T_TLSA = RDNS_REQUEST_TLSA,
+	DNS_T_SPF = RDNS_REQUEST_SPF,
+	DNS_T_ALL = RDNS_REQUEST_ANY
 };
 /* enum dns_type */
 
@@ -255,7 +255,9 @@ static const char dns_types[][16] = {
 	[RDNS_REQUEST_TXT] = "TXT request",
 	[RDNS_REQUEST_SRV] = "SRV request",
 	[RDNS_REQUEST_SPF] = "SPF request",
-	[RDNS_REQUEST_AAAA] = "AAAA request"
+	[RDNS_REQUEST_AAAA] = "AAAA request",
+	[RDNS_REQUEST_TLSA] = "TLSA request",
+	[RDNS_REQUEST_ANY] = "ANY request"
 };
 
 
