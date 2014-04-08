@@ -459,10 +459,14 @@ rdns_request_has_type (struct rdns_request *req, enum rdns_request_type type)
 	return false;
 }
 
-const char*
-rdns_request_get_name (struct rdns_request *req)
+const struct rdns_request_name *
+rdns_request_get_name (struct rdns_request *req, unsigned int *count)
 {
-	return req->requested_names[0].name;
+
+	if (count != NULL) {
+		*count = req->qcount;
+	}
+	return req->requested_names;
 }
 
 char *

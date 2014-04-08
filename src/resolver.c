@@ -458,7 +458,7 @@ rdns_make_request_full (
 	req->arg = cbdata;
 	req->reply = NULL;
 	req->qcount = queries;
-	req->requested_names = malloc (queries * sizeof (struct _rdns_request_name));
+	req->requested_names = malloc (queries * sizeof (struct rdns_request_name));
 	if (req->requested_names == NULL) {
 		free (req);
 		return NULL;

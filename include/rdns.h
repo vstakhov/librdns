@@ -179,6 +179,12 @@ typedef void (*rdns_log_function) (
 									va_list args //!< set of arguments
 									);
 
+struct rdns_request_name {
+	char *name;
+	enum rdns_request_type type;
+	unsigned int len;
+};
+
 /*
  * RDNS API
  */
@@ -322,7 +328,8 @@ bool rdns_request_has_type (struct rdns_request *req, enum rdns_request_type typ
  * @param req request object
  * @return requested name as it was passed to `rdns_make_request`
  */
-const char* rdns_request_get_name (struct rdns_request *req);
+const struct rdns_request_name* rdns_request_get_name (struct rdns_request *req,
+		unsigned int *count);
 
 /**
  * Return PTR string for a request (ipv4 or ipv6) addresses
