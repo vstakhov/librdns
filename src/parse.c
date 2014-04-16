@@ -306,6 +306,10 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 	case DNS_T_TXT:
 	case DNS_T_SPF:
 		elt->content.txt.data = malloc (datalen + 1);
+		if (elt->content.txt.data == NULL) {
+			rdns_err ("failed to allocate %d bytes for TXT record", (int)datalen + 1);
+			return -1;
+		}
 		/* Now we should compose data from parts */
 		copied = 0;
 		parts = 0;
@@ -342,7 +346,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		parsed = true;
 		break;
 	case DNS_T_TLSA:
-		if (p - *pos > (int)(*remain - sizeof (uint8_t) * 3)) {
+		if (p - *pos > (int)(*remain - sizeof (uint8_t) * 3) || datalen <= 3) {
 			rdns_info ("stripped dns reply while reading TLSA record");
 			return -1;
 		}
@@ -351,8 +355,14 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		GET8 (elt->content.tlsa.match_type);
 		datalen -= 3;
 		elt->content.tlsa.data = malloc (datalen);
+		if (elt->content.tlsa.data == NULL) {
+			rdns_err ("failed to allocate %d bytes for TLSA record", (int)datalen + 1);
+			return -1;
+		}
 		elt->content.tlsa.datalen = datalen;
 		memcpy (elt->content.tlsa.data, p, datalen);
+		p += datalen;
+		*remain -= datalen;
 		parsed = true;
 		break;
 	case DNS_T_CNAME:
