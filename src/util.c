@@ -487,10 +487,10 @@ rdns_generate_ptr_from_str (const char *str)
 		res = malloc (len);
 		if (res) {
 			snprintf (res, len, "%u.%u.%u.%u.in-addr.arpa",
-					(unsigned)bytes[3]&0xF,
-					(unsigned)bytes[2]&0xF,
-					(unsigned)bytes[1]&0xF,
-					(unsigned)bytes[0]&0xF);
+					(unsigned)bytes[3]&0xFF,
+					(unsigned)bytes[2]&0xFF,
+					(unsigned)bytes[1]&0xFF,
+					(unsigned)bytes[0]&0xFF);
 		}
 	}
 	else if (inet_pton (AF_INET6, str, &addr.v6) == 1) {
