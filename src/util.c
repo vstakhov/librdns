@@ -486,8 +486,11 @@ rdns_generate_ptr_from_str (const char *str)
 		len = 4 * 4 + sizeof ("in-addr.arpa");
 		res = malloc (len);
 		if (res) {
-			snprintf (res, len, "%c.%c.%c.%c.in-addr.arpa",
-					bytes[3], bytes[2], bytes[1], bytes[0]);
+			snprintf (res, len, "%u.%u.%u.%u.in-addr.arpa",
+					(unsigned)bytes[3]&0xF,
+					(unsigned)bytes[2]&0xF,
+					(unsigned)bytes[1]&0xF,
+					(unsigned)bytes[0]&0xF);
 		}
 	}
 	else if (inet_pton (AF_INET6, str, &addr.v6) == 1) {
