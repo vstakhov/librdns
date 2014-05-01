@@ -480,7 +480,7 @@ rdns_generate_ptr_from_str (const char *str)
 	unsigned char *bytes;
 	size_t len;
 
-	if (inet_pton (AF_INET, str, &addr.v4) == 0) {
+	if (inet_pton (AF_INET, str, &addr.v4) == 1) {
 		bytes = (unsigned char *)&addr.v4;
 
 		len = 4 * 4 + sizeof ("in-addr.arpa");
@@ -490,7 +490,7 @@ rdns_generate_ptr_from_str (const char *str)
 					bytes[3], bytes[2], bytes[1], bytes[0]);
 		}
 	}
-	else if (inet_pton (AF_INET6, str, &addr.v6) == 0) {
+	else if (inet_pton (AF_INET6, str, &addr.v6) == 1) {
 		bytes = (unsigned char *)&addr.v6;
 
 		len = 2*32 + sizeof ("ip6.arpa");
