@@ -486,7 +486,7 @@ rdns_generate_ptr_from_str (const char *str)
 		len = 4 * 4 + sizeof ("in-addr.arpa");
 		res = malloc (len);
 		if (res) {
-			snprintf (res, len, "%uc.%uc.%uc.%uc.in-addr.arpa",
+			snprintf (res, len, "%c.%c.%c.%c.in-addr.arpa",
 					bytes[3], bytes[2], bytes[1], bytes[0]);
 		}
 	}
