@@ -55,15 +55,16 @@ static void
 rdns_bind_libev (struct rdns_resolver *resolver, struct ev_loop *loop)
 {
 	static struct rdns_async_context ev_ctx = {
+		.data = NULL,
 		.add_read = rdns_libev_add_read,
 		.del_read = rdns_libev_del_read,
 		.add_write = rdns_libev_add_write,
 		.del_write = rdns_libev_del_write,
 		.add_timer = rdns_libev_add_timer,
-		.add_periodic = rdns_libev_add_periodic,
-		.del_periodic = rdns_libev_del_periodic,
 		.repeat_timer = rdns_libev_repeat_timer,
 		.del_timer = rdns_libev_del_timer,
+		.add_periodic = rdns_libev_add_periodic,
+		.del_periodic = rdns_libev_del_periodic,
 		.cleanup = NULL
 	}, *nctx;
 	void *ptr;
