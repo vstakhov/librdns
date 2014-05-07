@@ -30,6 +30,10 @@
 #include <string.h>
 #include "rdns.h"
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 static void* rdns_libevent_add_read (void *priv_data, int fd, void *user_data);
 static void rdns_libevent_del_read(void *priv_data, void *ev_data);
 static void* rdns_libevent_add_write (void *priv_data, int fd, void *user_data);
@@ -219,5 +223,9 @@ rdns_libevent_del_timer (void *priv_data, void *ev_data)
 		free (ev);
 	}
 }
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif /* RDNS_EV_H_ */

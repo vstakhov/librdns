@@ -25,6 +25,10 @@
 #ifndef RDNS_CURVE_H_
 #define RDNS_CURVE_H_
 
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
 struct rdns_curve_ctx;
 
 /**
@@ -63,5 +67,9 @@ void rdns_curve_register_plugin (struct rdns_resolver *resolver,
  * @return a key or NULL (not NULL terminated)
  */
 unsigned char * rdns_curve_key_from_hex (const char *hex);
+
+#ifdef  __cplusplus
+}
+#endif
 
 #endif /* RDNS_CURVE_H_ */
