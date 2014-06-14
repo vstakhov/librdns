@@ -118,7 +118,7 @@ rdns_libev_add_read (void *priv_data, int fd, void *user_data)
 		ev->data = user_data;
 		ev_io_start ((struct ev_loop *)priv_data, ev);
 	}
-	return (void *)ev;
+	return ptr;
 }
 
 static void
@@ -172,7 +172,7 @@ rdns_libev_add_periodic (void *priv_data, double after,
 		rdns_periodic_callback cb, void *user_data)
 {
 	ev_timer *ev;
-	struct rdns_ev_periodic_cbdata *cbdata;
+	struct rdns_ev_periodic_cbdata *cbdata = NULL;
 
 	ev = (ev_timer *)malloc (sizeof (ev_timer));
 	if (ev != NULL) {
