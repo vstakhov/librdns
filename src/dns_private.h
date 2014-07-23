@@ -212,7 +212,7 @@ struct dns_query {
 
 enum dns_type {
 	DNS_T_A = RDNS_REQUEST_A,
-	DNS_T_NS = 2,
+	DNS_T_NS = RDNS_REQUEST_NS,
 	DNS_T_CNAME = 5,
 	DNS_T_SOA = 6,
 	DNS_T_PTR = RDNS_REQUEST_PTR,
@@ -246,6 +246,7 @@ static const char dns_rcodes[][16] = {
 
 static const char dns_types[][16] = {
 	[RDNS_REQUEST_A] = "A request",
+	[RDNS_REQUEST_NS] = "NS request",
 	[RDNS_REQUEST_PTR] = "PTR request",
 	[RDNS_REQUEST_MX] = "MX request",
 	[RDNS_REQUEST_TXT] = "TXT request",

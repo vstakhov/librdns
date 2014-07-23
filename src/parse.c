@@ -294,6 +294,14 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		}
 		parsed = true;
 		break;
+	case DNS_T_NS:
+		if (! rdns_parse_labels (resolver, in, &elt->content.ns.name, &p,
+				rep, remain, true)) {
+			rdns_info ("invalid labels in NS record");
+			return -1;
+		}
+		parsed = true;
+		break;
 	case DNS_T_MX:
 		GET16 (elt->content.mx.priority);
 		if (! rdns_parse_labels (resolver, in, &elt->content.mx.name, &p,

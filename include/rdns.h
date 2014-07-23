@@ -46,6 +46,7 @@ typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 
 enum rdns_request_type {
 	RDNS_REQUEST_A = 1,
+	RDNS_REQUEST_NS = 2,
 	RDNS_REQUEST_PTR = 12,
 	RDNS_REQUEST_MX = 15,
 	RDNS_REQUEST_TXT = 16,
@@ -66,6 +67,9 @@ union rdns_reply_element_un {
 	struct {
 		char *name;
 	} ptr;
+	struct {
+		char *name;
+	} ns;
 	struct {
 		char *name;
 		uint16_t priority;

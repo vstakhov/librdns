@@ -268,6 +268,9 @@ rdns_reply_free (struct rdns_reply *rep)
 		case RDNS_REQUEST_PTR:
 			free (entry->content.ptr.name);
 			break;
+		case RDNS_REQUEST_NS:
+			free (entry->content.ns.name);
+			break;
 		case RDNS_REQUEST_MX:
 			free (entry->content.mx.name);
 			break;
