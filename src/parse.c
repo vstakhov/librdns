@@ -242,7 +242,8 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		struct rdns_reply *rep, int *remain)
 {
 	uint8_t *p = *pos, parts;
-	uint16_t type, datalen, txtlen, copied, ttl;
+	uint16_t type, datalen, txtlen, copied;
+	int32_t ttl;
 	bool parsed = false;
 
 	/* Skip the whole name */
@@ -255,9 +256,9 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		return -1;
 	}
 	GET16 (type);
-	GET16 (ttl);
 	/* Skip class */
-	SKIP (uint32_t);
+	SKIP (uint16_t);
+	GET32 (ttl);
 	GET16 (datalen);
 	elt->type = type;
 	/* Now p points to RR data */
