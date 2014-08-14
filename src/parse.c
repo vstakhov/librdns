@@ -303,6 +303,23 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		}
 		parsed = true;
 		break;
+	case DNS_T_SOA:
+		if (! rdns_parse_labels (resolver, in, &elt->content.soa.mname, &p,
+				rep, remain, true)) {
+			rdns_info ("invalid labels in NS record");
+			return -1;
+		}
+		if (! rdns_parse_labels (resolver, in, &elt->content.soa.admin, &p,
+				rep, remain, true)) {
+			rdns_info ("invalid labels in NS record");
+			return -1;
+		}
+		GET32 (elt->content.soa.serial);
+		GET32 (elt->content.soa.refresh);
+		GET32 (elt->content.soa.retry);
+		GET32 (elt->content.soa.expire);
+		parsed = true;
+		break;
 	case DNS_T_MX:
 		GET16 (elt->content.mx.priority);
 		if (! rdns_parse_labels (resolver, in, &elt->content.mx.name, &p,

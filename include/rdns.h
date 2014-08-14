@@ -47,6 +47,7 @@ typedef void (*dns_callback_type) (struct rdns_reply *reply, void *arg);
 enum rdns_request_type {
 	RDNS_REQUEST_A = 1,
 	RDNS_REQUEST_NS = 2,
+	RDNS_REQUEST_SOA = 6,
 	RDNS_REQUEST_PTR = 12,
 	RDNS_REQUEST_MX = 15,
 	RDNS_REQUEST_TXT = 16,
@@ -83,6 +84,14 @@ union rdns_reply_element_un {
 		uint16_t port;
 		char *target;
 	} srv;
+	struct {
+		char *mname;
+		char *admin;
+		uint32_t serial;
+		int32_t refresh;
+		int32_t retry;
+		int32_t expire;
+	} soa;
 	struct {
 		uint8_t usage;
 		uint8_t selector;

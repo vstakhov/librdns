@@ -284,6 +284,10 @@ rdns_reply_free (struct rdns_reply *rep)
 		case RDNS_REQUEST_TLSA:
 			free (entry->content.tlsa.data);
 			break;
+		case RDNS_REQUEST_SOA:
+			free (entry->content.soa.mname);
+			free (entry->content.soa.admin);
+			break;
 		}
 		free (entry);
 	}

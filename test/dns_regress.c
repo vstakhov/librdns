@@ -51,6 +51,16 @@ rdns_regress_callback (struct rdns_reply *reply, void *arg)
 				inet_ntop (AF_INET6, &entry->content.aaa.addr, out, sizeof (out));
 				printf ("%s has AAAA record %s\n", (char *)arg, out);
 			}
+			else if (entry->type == RDNS_REQUEST_SOA) {
+				printf ("%s has SOA record %s %s %u %d %d %d\n",
+						(char *)arg,
+						entry->content.soa.mname,
+						entry->content.soa.admin,
+						entry->content.soa.serial,
+						entry->content.soa.refresh,
+						entry->content.soa.retry,
+						entry->content.soa.expire);
+			}
 			else if (entry->type == RDNS_REQUEST_TLSA) {
 				char *hex, *p;
 				unsigned i;
@@ -85,7 +95,7 @@ static void
 rdns_test_a (struct rdns_resolver *resolver)
 {
 	const char *names[] = {
-			"google.com",
+			//"google.com",
 			"github.com",
 			"freebsd.org",
 			"kernel.org",
@@ -99,6 +109,8 @@ rdns_test_a (struct rdns_resolver *resolver)
 				*cur, RDNS_REQUEST_AAAA);
 		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
 				*cur, RDNS_REQUEST_A);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
+				*cur, RDNS_REQUEST_SOA);
 		remain_tests ++;
 	}
 }
