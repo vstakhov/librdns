@@ -465,7 +465,7 @@ rdns_make_request_full (
 	}
 
 	req->type = 0;
-#ifdef HAVE_SODIUM
+#ifdef TWEETNACL
 	req->curve_plugin_data = NULL;
 #endif
 	REF_INIT_RETAIN (req, rdns_request_free);

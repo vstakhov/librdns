@@ -321,7 +321,7 @@ rdns_request_free (struct rdns_request *req)
 			req->async->del_write (req->async->data,
 					req->async_event);
 		}
-#ifdef HAVE_SODIUM
+#ifdef TWEETNACL
 		if (req->curve_plugin_data != NULL) {
 			req->resolver->curve_plugin->cb.curve_plugin.finish_cb (
 					req, req->resolver->curve_plugin->data);

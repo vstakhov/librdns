@@ -34,8 +34,27 @@
 #include "ref.h"
 #include "logger.h"
 
-#ifdef HAVE_SODIUM
-#include <sodium.h>
+#ifdef TWEETNACL
+
+#include <tweetnacl.h>
+
+void
+randombytes(uint8_t *data, uint64_t len)
+{
+	ottery_rand_bytes (data, len);
+}
+void sodium_memzero (uint8_t *data, uint64_t len)
+{
+	volatile uint8_t *p = data;
+
+	while (len--) {
+		*p = '\0';
+	}
+}
+void sodium_init(void)
+{
+
+}
 
 ssize_t rdns_curve_send (struct rdns_request *req, void *plugin_data);
 ssize_t rdns_curve_recv (struct rdns_io_channel *ioc, void *buf, size_t len,

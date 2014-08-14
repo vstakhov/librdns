@@ -85,18 +85,20 @@ static void
 rdns_test_a (struct rdns_resolver *resolver)
 {
 	const char *names[] = {
-			//"google.com",
-			//"github.com",
+			"google.com",
+			"github.com",
 			"freebsd.org",
-			//"kernel.org",
+			"kernel.org",
 			//"www.ник.рф",
 			NULL
 	};
 	const char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 2,
-				*cur, RDNS_REQUEST_AAAA, *cur, RDNS_REQUEST_A);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
+				*cur, RDNS_REQUEST_AAAA);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
+				*cur, RDNS_REQUEST_A);
 		remain_tests ++;
 	}
 }

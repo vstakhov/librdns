@@ -1,12 +1,12 @@
 PROJECT(librdns C)
 
-SET(RSPAMD_VERSION_MAJOR 0)
-SET(RSPAMD_VERSION_MINOR 0)
-SET(RSPAMD_VERSION_PATCH 0)
+SET(RDNS_VERSION_MAJOR 0)
+SET(RDNS_VERSION_MINOR 1)
+SET(RDNS_VERSION_PATCH 0)
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6.0 FATAL_ERROR)
 
-OPTION(ENABLE_CURVE "Enable DNSCurve plugin" OFF)
+OPTION(ENABLE_CURVE "Enable DNSCurve plugin" ON)
 
 INCLUDE(CheckFunctionExists)
 INCLUDE(CheckSymbolExists)
@@ -22,34 +22,12 @@ IF(NOT SLAVE_BUILD)
 	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 ENDIF(NOT SLAVE_BUILD)
 
-IF(ENABLE_CURVE MATCHES "ON" AND NOT LIBSODIUM)
-	FIND_LIBRARY(LIBSODIUM NAMES sodium PATH_SUFFIXES lib64 lib
-	                  PATHS
-	                      ~/Library/Frameworks
-	                      /Library/Frameworks
-	                      /usr/local
-	                      /usr
-	                      /sw
-	                      /opt/local
-	                      /opt/csw
-	                      /opt
-	                 DOC "Path where the libsodium library can be found")
-	IF(NOT LIBSODIUM)
-		MESSAGE(FATAL_ERROR "libsodium is required for DNSCurve support")
-	ENDIF(NOT LIBSODIUM)
-	
-	FIND_PATH(LIBSODIUM_INCLUDE sodium.h PATHS 	/opt/include
-											/usr/include
-											/usr/local/include
-											DOC "Path where the libsodium header files can be found")
-	IF(NOT LIBSODIUM_INCLUDE)
-		MESSAGE(FATAL_ERROR "libsodium header is required for DNSCurve support")
-	ENDIF(NOT LIBSODIUM_INCLUDE)
-	GET_FILENAME_COMPONENT(LIBSODIUM_PATH "${LIBSODIUM}" PATH)
-	INCLUDE_DIRECTORIES("${LIBSODIUM_INCLUDE}")
-	LINK_DIRECTORIES("${LIBSODIUM_PATH}")
-	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_SODIUM")
-ENDIF(ENABLE_CURVE MATCHES "ON" AND NOT LIBSODIUM)
+IF(ENABLE_CURVE MATCHES "ON")
+	ADD_SUBDIRECTORY(contrib/tweetnacl)
+	INCLUDE_DIRECTORIES("contrib/tweetnacl")
+	SET(TWEETNACL 1)
+	ADD_DEFINITIONS("-DTWEETNACL")
+ENDIF(ENABLE_CURVE MATCHES "ON")
 
 
 SET(LIBRDNSSRC			src/util.c
@@ -66,16 +44,28 @@ INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/src"
 					"${CMAKE_BINARY_DIR}/src"
 					"${CMAKE_BINARY_DIR}/include"  
 					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/uthash"
-					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/libottery")
+					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/libottery"
+					"${CMAKE_CURRENT_SOURCE_DIR}/contrib/tweetnacl")
 
 IF(NOT SLAVE_BUILD)
 	ADD_SUBDIRECTORY(contrib/libottery)
 ENDIF(NOT SLAVE_BUILD)
 ADD_SUBDIRECTORY(test)
 
-ADD_LIBRARY(rdns STATIC ${LIBRDNSSRC})
-TARGET_LINK_LIBRARIES(rdns ottery)
+ADD_LIBRARY(rdns_core OBJECT ${LIBRDNSSRC})
+SET_TARGET_PROPERTIES(rdns_core PROPERTIES COMPILE_FLAGS "-fPIC")
 
+SET(DLIBS "$<TARGET_OBJECTS:ottery>")
 IF(ENABLE_CURVE MATCHES "ON")
-	TARGET_LINK_LIBRARIES(rdns sodium)
+	LIST(APPEND DLIBS "$<TARGET_OBJECTS:tweetnacl>")
 ENDIF(ENABLE_CURVE MATCHES "ON")
+
+IF(NOT SLAVE_BUILD)
+	ADD_LIBRARY(rdns_static STATIC $<TARGET_OBJECTS:rdns_core> ${DLIBS})
+	ADD_LIBRARY(rdns SHARED $<TARGET_OBJECTS:rdns_core> ${DLIBS})
+	SET_TARGET_PROPERTIES(rdns PROPERTIES
+			VERSION ${RDNS_VERSION_MAJOR}.${RDNS_VERSION_MINOR}.${RDNS_VERSION_PATCH}
+			SOVERSION ${RDNS_VERSION_MINOR})
+ELSE(NOT SLAVE_BUILD)
+	ADD_LIBRARY(rdns STATIC $<TARGET_OBJECTS:rdns_core> ${DLIBS})
+ENDIF(NOT SLAVE_BUILD)

@@ -92,7 +92,7 @@ struct rdns_request {
 
 	void *async_event;
 
-#ifdef HAVE_SODIUM
+#ifdef TWEETNACL
 	void *curve_plugin_data;
 #endif
 
