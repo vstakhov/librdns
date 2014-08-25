@@ -438,40 +438,6 @@ rdns_process_retransmit (int fd, void *arg)
 	}
 }
 
-static bool
-rdns_maybe_punycode_name (const char *in, size_t inlen,
-		char **out)
-{
-	const char *p = in, *end = in + inlen;
-	bool need_encode = false;
-	uint32_t *ucs_out;
-	size_t out_len;
-
-	while (p != end) {
-		if (*p >= 0x80) {
-			need_encode = true;
-			break;
-		}
-		p ++;
-	}
-
-	if (!need_encode) {
-		*out = malloc (inlen + 1);
-		if (*out == NULL) {
-			return false;
-		}
-		memcpy (*out, in, inlen);
-		(*out)[inlen] = '\0';
-	}
-	else {
-		if (rdns_utf8_to_ucs4 (in, inlen, &ucs_out, &out_len) != 0) {
-			return false;
-		}
-
-	}
-
-}
-
 struct rdns_request*
 rdns_make_request_full (
 		struct rdns_resolver *resolver,
