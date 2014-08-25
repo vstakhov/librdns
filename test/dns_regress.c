@@ -36,9 +36,7 @@ rdns_regress_callback (struct rdns_reply *reply, void *arg)
 {
 	struct rdns_reply_entry *entry;
 	char out[INET6_ADDRSTRLEN + 1];
-
-	printf ("got result for host: %s, code: %s\n", (const char *)arg,
-			rdns_strerror (reply->code));
+	const struct rdns_request_name *name;
 
 	if (reply->code == RDNS_RC_NOERROR) {
 		entry = reply->entries;
@@ -85,8 +83,16 @@ rdns_regress_callback (struct rdns_reply *reply, void *arg)
 			entry = entry->next;
 		}
 	}
+	else {
+		name = rdns_request_get_name (reply->request, NULL);
+		printf ("Cannot resolve %s record for %s: %s\n",
+				rdns_strtype (name->type),
+				(char *)arg,
+				rdns_strerror (reply->code));
+	}
 
 	if (--remain_tests == 0) {
+		printf ("End of test cycle\n");
 		rdns_resolver_release (reply->resolver);
 	}
 }
@@ -94,39 +100,38 @@ rdns_regress_callback (struct rdns_reply *reply, void *arg)
 static void
 rdns_test_a (struct rdns_resolver *resolver)
 {
-	const char *names[] = {
+	static char *names[] = {
 			//"google.com",
 			"github.com",
 			"freebsd.org",
-			"kernel.org",
-			//"www.ник.рф",
+			//"kernel.org",
+			"www.ник.рф",
 			NULL
 	};
-	const char **cur;
+	char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
 		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
 				*cur, RDNS_REQUEST_AAAA);
 		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
 				*cur, RDNS_REQUEST_A);
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
-				*cur, RDNS_REQUEST_SOA);
-		remain_tests ++;
+		remain_tests += 2;
 	}
 }
 
 static void
 rdns_test_tlsa (struct rdns_resolver *resolver)
 {
-	const char *names[] = {
+	static char *names[] = {
 			"_25._tcp.mail6.highsecure.ru",
 			"_25._tcp.open.NLnetLabs.nl",
 			NULL
 	};
-	const char **cur;
+	char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1, *cur, RDNS_REQUEST_TLSA);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1,
+				*cur, RDNS_REQUEST_TLSA);
 		remain_tests ++;
 	}
 }
