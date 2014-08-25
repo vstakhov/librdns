@@ -152,6 +152,8 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 	uint8_t *pos, *npos;
 	struct rdns_resolver *resolver = req->resolver;
 	uint16_t qdcount;
+	int type;
+	bool found = false;
 
 	int i, t;
 
@@ -193,6 +195,8 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 		return false;
 	}
 
+	type = req->requested_names[0].type;
+
 	if (rep->code == RDNS_RC_NOERROR) {
 		r -= pos - in;
 		/* Extract RR records */
@@ -206,6 +210,9 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 			}
 			else if (t == 1) {
 				DL_APPEND (rep->entries, elt);
+				if (elt->type == type) {
+					found = true;
+				}
 			}
 			else {
 				rdns_debug ("no matching reply for %s",
@@ -215,6 +222,11 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 		}
 	}
 	
+	if (!found && type != RDNS_REQUEST_ANY) {
+		/* We have not found the requested RR type */
+		rep->code = RDNS_RC_NOREC;
+	}
+
 	*_rep = rep;
 	return true;
 }

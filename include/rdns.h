@@ -122,7 +122,8 @@ enum dns_rcode {
 	RDNS_RC_NOTAUTH	= 9,
 	RDNS_RC_NOTZONE	= 10,
 	RDNS_RC_TIMEOUT = 11,
-	RDNS_RC_NETERR = 12
+	RDNS_RC_NETERR = 12,
+	RDNS_RC_NOREC = 13
 };
 	
 struct rdns_reply {

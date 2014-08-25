@@ -228,20 +228,21 @@ enum dns_type {
 };
 /* enum dns_type */
 
-static const char dns_rcodes[][16] = {
-	[RDNS_RC_NOERROR]  = "NOERROR",
-	[RDNS_RC_FORMERR]  = "FORMERR",
-	[RDNS_RC_SERVFAIL] = "SERVFAIL",
-	[RDNS_RC_NXDOMAIN] = "NXDOMAIN",
-	[RDNS_RC_NOTIMP]   = "NOTIMP",
-	[RDNS_RC_REFUSED]  = "REFUSED",
+static const char dns_rcodes[][32] = {
+	[RDNS_RC_NOERROR]  = "no error",
+	[RDNS_RC_FORMERR]  = "query format error",
+	[RDNS_RC_SERVFAIL] = "server fail",
+	[RDNS_RC_NXDOMAIN] = "no records with this name",
+	[RDNS_RC_NOTIMP]   = "not implemented",
+	[RDNS_RC_REFUSED]  = "query refused",
 	[RDNS_RC_YXDOMAIN] = "YXDOMAIN",
 	[RDNS_RC_YXRRSET]  = "YXRRSET",
 	[RDNS_RC_NXRRSET]  = "NXRRSET",
-	[RDNS_RC_NOTAUTH]  = "NOTAUTH",
-	[RDNS_RC_NOTZONE]  = "NOTZONE",
-	[RDNS_RC_TIMEOUT]  = "TIMEOUT",
-	[RDNS_RC_NETERR]  = "NETERR",
+	[RDNS_RC_NOTAUTH]  = "not authorized",
+	[RDNS_RC_NOTZONE]  = "no such zone",
+	[RDNS_RC_TIMEOUT]  = "query timed out",
+	[RDNS_RC_NETERR]  = "network error",
+	[RDNS_RC_NOREC]  = "requested record is not found"
 };
 
 static const char dns_types[][16] = {
