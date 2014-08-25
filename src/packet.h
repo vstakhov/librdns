@@ -49,7 +49,9 @@ void rdns_make_dns_header (struct rdns_request *req, unsigned int qcount);
  * @param name name string
  * @param namelen length of name
  */
-void rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int namelen);
+bool rdns_format_dns_name (struct rdns_resolver *resolver,
+		const char *name, size_t namelen,
+		char **out, size_t *outlen);
 
 /**
  * Add a resource record to the DNS packet

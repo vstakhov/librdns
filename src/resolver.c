@@ -208,7 +208,8 @@ rdns_parse_reply (uint8_t *in, int r, struct rdns_request *req,
 				DL_APPEND (rep->entries, elt);
 			}
 			else {
-				rdns_debug ("unknown reply");
+				rdns_debug ("no matching reply for %s",
+						req->requested_names[0].name);
 				free (elt);
 			}
 		}
@@ -425,6 +426,40 @@ rdns_process_retransmit (int fd, void *arg)
 	}
 }
 
+static bool
+rdns_maybe_punycode_name (const char *in, size_t inlen,
+		char **out)
+{
+	const char *p = in, *end = in + inlen;
+	bool need_encode = false;
+	uint32_t *ucs_out;
+	size_t out_len;
+
+	while (p != end) {
+		if (*p >= 0x80) {
+			need_encode = true;
+			break;
+		}
+		p ++;
+	}
+
+	if (!need_encode) {
+		*out = malloc (inlen + 1);
+		if (*out == NULL) {
+			return false;
+		}
+		memcpy (*out, in, inlen);
+		(*out)[inlen] = '\0';
+	}
+	else {
+		if (rdns_utf8_to_ucs4 (in, inlen, &ucs_out, &out_len) != 0) {
+			return false;
+		}
+
+	}
+
+}
+
 struct rdns_request*
 rdns_make_request_full (
 		struct rdns_resolver *resolver,
@@ -441,6 +476,7 @@ rdns_make_request_full (
 	struct rdns_server *serv;
 	int r, type;
 	unsigned int i, tlen = 0, clen = 0, cur;
+	size_t olen;
 	const char *cur_name, *last_name = NULL;
 	struct rdns_compression_entry *comp = NULL;
 
@@ -491,16 +527,15 @@ rdns_make_request_full (
 			return NULL;
 		}
 
-		req->requested_names[cur].name = malloc (clen + 1);
-		if (req->requested_names[cur].name == NULL) {
+		if (!rdns_format_dns_name (resolver, last_name, clen,
+				&req->requested_names[cur].name, &olen)) {
 			rdns_request_free (req);
 			return NULL;
 		}
-		memcpy (req->requested_names[cur].name, last_name, clen);
-		req->requested_names[cur].name[clen] = '\0';
+
 		type = va_arg (args, int);
 		req->requested_names[cur].type = type;
-		req->requested_names[cur].len = clen;
+		req->requested_names[cur].len = olen;
 	}
 	va_end (args);
 

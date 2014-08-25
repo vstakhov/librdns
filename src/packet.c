@@ -56,10 +56,11 @@ rdns_make_dns_header (struct rdns_request *req, unsigned int qcount)
 }
 
 static bool
-rdns_maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigned int *label_len)
+rdns_maybe_punycode_label (const uint8_t *begin,
+		uint8_t const **dot, size_t *label_len)
 {
 	bool ret = false;
-	uint8_t *p = begin;
+	const uint8_t *p = begin;
 
 	*dot = NULL;
 
@@ -75,48 +76,96 @@ rdns_maybe_punycode_label (uint8_t *begin, uint8_t **res, uint8_t **dot, unsigne
 	}
 
 	if (*p) {
-		*res = p - 1;
 		*label_len = p - begin;
 	}
 	else {
-		*res = p;
 		*label_len = p - begin;
 	}
 
 	return ret;
 }
 
-void
-rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int namelen)
+bool
+rdns_format_dns_name (struct rdns_resolver *resolver, const char *in,
+		size_t inlen,
+		char **out, size_t *outlen)
 {
-	uint8_t *pos = req->packet + req->pos, *dot, *name_pos, *begin;
-	unsigned int remain = req->packet_len - req->pos - 5, label_len;
+	const uint8_t *dot;
+	const uint8_t *p = in, *end = in + inlen;
+	char *o;
+	int labels = 0;
+	size_t label_len, olen, remain;
 	uint32_t *uclabel;
 	size_t punylabel_len, uclabel_len;
-	uint8_t tmp_label[DNS_D_MAXLABEL];
-	struct rdns_resolver *resolver = req->resolver;
+	char tmp_label[DNS_D_MAXLABEL];
+	bool need_encode = false;
 
-	if (namelen == 0) {
-		namelen = strlen (name);
+	if (inlen == 0) {
+		inlen = strlen (in);
 	}
 
-	begin = (uint8_t *)name;
-	for (;;) {
+	/* Check for non-ascii characters */
+	while (p != end) {
+		if (*p >= 0x80) {
+			need_encode = true;
+		}
+		else if (*p == '.') {
+			labels ++;
+		}
+		p ++;
+	}
+
+	if (!need_encode) {
+		*out = malloc (inlen + 1);
+		if (*out == NULL) {
+			return false;
+		}
+		o = *out;
+		memcpy (o, in, inlen);
+		o[inlen] = '\0';
+		*outlen = inlen;
+
+		return true;
+	}
+
+	/* We need to encode */
+
+	p = in;
+	olen = inlen + 1 + sizeof ("xn--") * labels;
+	*out = malloc (olen);
+
+	if (*out == NULL) {
+		return false;
+	}
+
+	o = *out;
+	remain = olen;
+
+	while (p != end) {
 		/* Check label for unicode characters */
-		if (rdns_maybe_punycode_label (begin, &name_pos, &dot, &label_len)) {
+		if (rdns_maybe_punycode_label (p, &dot, &label_len)) {
 			/* Convert to ucs4 */
-			if (rdns_utf8_to_ucs4 ((char *)begin, label_len, &uclabel, &uclabel_len) == 0) {
+			if (rdns_utf8_to_ucs4 (p, label_len, &uclabel, &uclabel_len) == 0) {
 				punylabel_len = DNS_D_MAXLABEL;
 
-				rdns_punycode_label_toascii (uclabel, uclabel_len, (char *)tmp_label, &punylabel_len);
-				/* Try to compress name */
-				*pos++ = (uint8_t)punylabel_len;
-				memcpy (pos, tmp_label, punylabel_len);
+				rdns_punycode_label_toascii (uclabel, uclabel_len,
+						tmp_label, &punylabel_len);
+				if (remain >= punylabel_len + 1) {
+					memcpy (o, tmp_label, punylabel_len);
+					o += punylabel_len;
+					*o++ = '.';
+					remain -= punylabel_len + 1;
+				}
+				else {
+					rdns_info ("no buffer remain for punycoding query");
+					free (*out);
+					return false;
+				}
+
 				free (uclabel);
-				pos += punylabel_len;
+
 				if (dot) {
-					remain -= label_len + 1;
-					begin = dot + 1;
+					p = dot + 1;
 				}
 				else {
 					break;
@@ -133,20 +182,20 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 					label_len = DNS_D_MAXLABEL;
 				}
 				if (remain < label_len + 1) {
-					label_len = remain - 1;
-					rdns_info ("no buffer remain for constructing query, strip to %d", (int)label_len);
+					rdns_info ("no buffer remain for punycoding query");
+					return false;
 				}
 				if (label_len == 0) {
 					/* Two dots in order, skip this */
 					rdns_info ("name contains two or more dots in a row, replace it with one dot");
-					begin = dot + 1;
+					p = dot + 1;
 					continue;
 				}
-				*pos++ = (uint8_t)label_len;
-				memcpy (pos, begin, label_len);
-				pos += label_len;
+				memcpy (o, p, label_len);
+				o += label_len;
+				*o++ = '.';
 				remain -= label_len + 1;
-				begin = dot + 1;
+				p = dot + 1;
 			}
 			else {
 				if (label_len == 0) {
@@ -158,23 +207,27 @@ rdns_format_dns_name (struct rdns_request *req, const char *name, unsigned int n
 					label_len = DNS_D_MAXLABEL;
 				}
 				if (remain < label_len + 1) {
-					label_len = remain - 1;
-					rdns_info ("no buffer remain for constructing query, strip to %d", (int)label_len);
+					rdns_info ("no buffer remain for punycoding query");
+					return false;
 				}
-				*pos++ = (uint8_t)label_len;
-				memcpy (pos, begin, label_len);
-				pos += label_len;
+				memcpy (o, p, label_len);
+				o += label_len;
+				*o++ = '.';
+				remain -= label_len + 1;
+				p = dot + 1;
 				break;
 			}
 		}
 		if (remain == 0) {
-			rdns_warn ("no buffer space available, aborting");
-			break;
+			rdns_info ("no buffer remain for punycoding query");
+			return false;
 		}
 	}
-	/* Termination label */
-	*pos = '\0';
-	req->pos += pos - (req->packet + req->pos) + 1;
+	*o = '\0';
+
+	*outlen = o - *out;
+
+	return true;
 }
 
 bool

@@ -38,7 +38,8 @@
 static unsigned int
 digit (unsigned n)
 {
-	return "abcdefghijklmnopqrstuvwxyz0123456789"[n];
+	static const char ascii[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+	return ascii[n];
 }
 
 static unsigned int
