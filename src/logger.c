@@ -32,7 +32,7 @@ rdns_logger_internal (void *log_data, enum rdns_log_level level,
 {
 	struct rdns_resolver *resolver = log_data;
 
-	if (level >= resolver->log_level) {
+	if (level <= resolver->log_level) {
 		fprintf (stderr, "rdns: %s: ", function);
 		vfprintf (stderr, format, args);
 		fprintf (stderr, "\n");
