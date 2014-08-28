@@ -91,6 +91,7 @@ union rdns_reply_element_un {
 		int32_t refresh;
 		int32_t retry;
 		int32_t expire;
+		uint32_t minimum;
 	} soa;
 	struct {
 		uint8_t usage;

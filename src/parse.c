@@ -318,6 +318,7 @@ rdns_parse_rr (struct rdns_resolver *resolver,
 		GET32 (elt->content.soa.refresh);
 		GET32 (elt->content.soa.retry);
 		GET32 (elt->content.soa.expire);
+		GET32 (elt->content.soa.minimum);
 		parsed = true;
 		break;
 	case DNS_T_MX:
