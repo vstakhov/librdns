@@ -346,7 +346,6 @@ rdns_ioc_free (struct rdns_io_channel *ioc)
 	struct rdns_request *req, *rtmp;
 
 	HASH_ITER (hh, ioc->requests, req, rtmp) {
-		HASH_DELETE (hh, ioc->requests, req);
 		REF_RELEASE (req);
 	}
 	ioc->resolver->async->del_read (ioc->resolver->async->data,

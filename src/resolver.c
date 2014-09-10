@@ -326,6 +326,7 @@ rdns_process_timer (void *arg)
 		/* Select random IO channel */
 		req->io = serv->io_channels[ottery_rand_uint32 () % serv->io_cnt];
 		req->io->uses ++;
+		REF_RETAIN (req->io);
 		renew = true;
 	}
 
@@ -472,6 +473,8 @@ rdns_make_request_full (
 	req->arg = cbdata;
 	req->reply = NULL;
 	req->qcount = queries;
+	req->io = NULL;
+	req->state = RDNS_REQUEST_NEW;
 	req->requested_names = malloc (queries * sizeof (struct rdns_request_name));
 	if (req->requested_names == NULL) {
 		free (req);
@@ -740,6 +743,7 @@ rdns_resolver_free (struct rdns_resolver *resolver)
 				ioc = serv->io_channels[i];
 				REF_RELEASE (ioc);
 			}
+			serv->io_cnt = 0;
 			UPSTREAM_DEL (resolver->servers, serv);
 			free (serv->io_channels);
 			free (serv->name);
