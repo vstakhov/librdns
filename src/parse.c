@@ -223,7 +223,13 @@ rdns_parse_labels (struct rdns_resolver *resolver,
 			p += *p + 1;
 		}
 	}
-	*(t - 1) = '\0';
+	if (t > (uint8_t *)*target) {
+		*(t - 1) = '\0';
+	}
+	else {
+		/* Handle empty labels */
+		**target = '\0';
+	}
 end:
 	*remain = new_remain;
 	*pos = new_pos;
