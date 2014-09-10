@@ -475,7 +475,8 @@ rdns_make_request_full (
 	req->qcount = queries;
 	req->io = NULL;
 	req->state = RDNS_REQUEST_NEW;
-	req->requested_names = malloc (queries * sizeof (struct rdns_request_name));
+	req->packet = NULL;
+	req->requested_names = calloc (queries, sizeof (struct rdns_request_name));
 	if (req->requested_names == NULL) {
 		free (req);
 		return NULL;
