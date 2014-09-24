@@ -390,7 +390,7 @@ rdns_resolver_conf_process_line (struct rdns_resolver *resolver, char *line)
 			has_obrace = true;
 			p ++;
 		}
-		if (isxdigit (*p)) {
+		if (isxdigit (*p) || *p == ':') {
 			c = p;
 			while (isxdigit (*p) || *p == ':' || *p == '.') {
 				p ++;
