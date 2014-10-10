@@ -51,7 +51,7 @@ rdns_regress_callback (struct rdns_reply *reply, void *arg)
 static void
 rdns_test_a (struct rdns_resolver *resolver)
 {
-	const char *names[] = {
+	char *names[] = {
 			"google.com",
 			"github.com",
 			"freebsd.org",
@@ -59,26 +59,31 @@ rdns_test_a (struct rdns_resolver *resolver)
 			"www.ник.рф",
 			NULL
 	};
-	const char **cur;
+	char **cur;
 
 	for (cur = names; *cur != NULL; cur ++) {
-		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, *cur, 1, DNS_REQUEST_A);
+		rdns_make_request_full (resolver, rdns_regress_callback, *cur, 1.0, 2, 1, *cur, RDNS_REQUEST_A);
 		remain_tests ++;
 	}
 }
 
-int main(int argc, char **argv) 
+int
+main(int argc, char **argv)
 {
 	struct rdns_resolver *resolver_ev;
 	struct ev_loop *loop;
-	
+
+	loop = ev_default_loop (0);
+	resolver_ev = rdns_resolver_new ();
+	rdns_bind_libev (resolver_ev, loop);
+
 	rdns_resolver_add_server (resolver_ev, argv[1], strtoul (argv[2], NULL, 10), 0, 8);
 
 	rdns_resolver_init (resolver_ev);
 
 	rdns_test_a (resolver_ev);
 	ev_loop (loop, 0);
-	
+
 	return 0;
 }
 ~~~
